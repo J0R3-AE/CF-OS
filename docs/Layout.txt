@@ -1,0 +1,152 @@
+📦 your-os/
+├── 📄 Makefile
+├── 📄 README.md
+├── 📄 TODO.md
+│
+├── 🧰 scripts/
+│   ├── requirements.sh
+│   ├── run.sh
+│   └── verify.sh
+│
+├── 💽 boot/
+│   └── grub/
+│       ├── grub.cfg
+│       └── AElogo.png
+│
+├── 🗂️ base/                     # Root filesystem (/)
+│   ├── bin/
+│   ├── lib/
+│   ├── etc/
+│   ├── dev/
+│   └── home/
+│
+├── 🏗️ build/                   # Build artifacts
+├── 💿 disk/                    # Disk images
+│
+├── 🧠 kernel/
+│   ├── arch/
+│   │   └── i386/
+│   │       ├── asm/
+│   │       │   ├── i386context.asm
+│   │       │   ├── i386entry.asm
+│   │       │   ├── i386gdt.asm
+│   │       │   ├── i386idt.asm
+│   │       │   ├── i386io.asm
+│   │       │   ├── i386isr.asm
+│   │       │   ├── i386multiboot.asm
+│   │       │   ├── i386serial.asm
+│   │       │   ├── i386spinlock.asm
+│   │       │   ├── i386trampoline.asm
+│   │       │   └── i386tss.asm
+│   │       │
+│   │       ├── atomic.c
+│   │       ├── context.c
+│   │       ├── gdt.c
+│   │       ├── idt.c
+│   │       ├── io.c
+│   │       ├── pic.c
+│   │       ├── pit.c
+│   │       ├── spinlock.c
+│   │       └── tss.c
+│   │
+│   ├── core/
+│   │   ├── init.c
+│   │   └── main.c
+│   │
+│   ├── drivers/
+│   │   ├── ata/
+│   │   │   └── ata.c
+│   │   ├── fb/
+│   │   │   └── fbcon.c
+│   │   ├── input.c
+│   │   ├── keyboard.c
+│   │   ├── kbd.c
+│   │   ├── tty.c
+│   │   └── log.c
+│   │
+│   ├── elf/
+│   │   └── elf.c
+│   │
+│   ├── fs/
+│   │   ├── ext2/
+│   │   │   └── ext2.c
+│   │   ├── fat/
+│   │   │   ├── fat.c
+│   │   │   ├── fat12.c
+│   │   │   ├── fat16.c
+│   │   │   └── fat32.c
+│   │   ├── ramfs/
+│   │   │   └── ramfs.c
+│   │   ├── vfs/
+│   │   │   ├── vfs.c
+│   │   │   └── vfs_ref.c
+│   │   ├── blockdev.c
+│   │   ├── fd.c
+│   │   └── mount.c
+│   │
+│   ├── mm/
+│   │   ├── heap.c
+│   │   ├── paging.c
+│   │   ├── pmm.c
+│   │   └── vmm.c
+│   │
+│   ├── proc/
+│   │   ├── exec.c
+│   │   └── proc.c
+│   │
+│   ├── sched/
+│   │   ├── pipeline.c
+│   │   ├── queue.c
+│   │   ├── sched.c
+│   │   └── thread.c
+│   │
+│   ├── sys/
+│   │   └── syscall.c
+│   │
+│   └── shell/               ⚠️ (consider moving to userland)
+│       ├── shell.c
+│       └── builtin/
+│           ├── builtin.c
+│           ├── cat.c
+│           ├── cd.c
+│           ├── clear.c
+│           ├── echo.c
+│           ├── exit.c
+│           ├── help.c
+│           ├── history.c
+│           ├── ls.c
+│           └── pwd.c
+│
+├── 📚 include/
+│   ├── arch/
+│   ├── drivers/
+│   ├── fs/
+│   ├── mm/
+│   ├── proc/
+│   ├── sched/
+│   ├── sys/
+│   └── lib/                ⚠️ (consider renaming to libk/)
+│
+├── 🔧 libk/                # Kernel support library
+│   ├── mem.c
+│   ├── printf.c
+│   └── string.c
+│
+├── 👤 userland/
+│   ├── libc/
+│   │   ├── include/
+│   │   └── src/
+│   │
+│   ├── crt/
+│   │   └── crt0.asm
+│   │
+│   ├── apps/
+│   │   ├── sh/
+│   │   ├── init/
+│   │   └── coreutils/
+│   │
+│   └── bin/               # Compiled user programs
+│
+└── 🧪 (cleanup)
+    ├── user_hello.h       ⚠️ move/remove
+    └── user_sh.c          ⚠️ move/remove
