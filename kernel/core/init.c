@@ -32,26 +32,17 @@
 #include "fs/fat.h"
 #include "fs/ext2.h"
 
+#include "elf/elf.h"
+
 #include "sched/sched.h"
 #include "proc/proc.h"
 
-
-extern void tar_extract(struct vnode *root, void *start, u32 size);
-extern int elf32_load_image(struct page_directory *pd, struct vnode *vn, Elf32_Addr *entry_out);
-extern struct task *kernel_spawn_user(struct vnode *exec);
-extern void scheduler_add(struct task *t);
-
 static uint8_t kernel_stack[4096];
+extern void enter_user_mode(uint32_t entry, uint32_t esp);
 
-extern void syscall_dispatch(registers_t *r);
-extern void page_fault_handler(registers_t *r);
-
-/* if you are using initramfs later */
-
-void *initramfs_start = 0;
-uint32_t initramfs_size = 0;
 extern multiboot_info_t *g_mbi;
 
+/* if you are using initramfs later */
 void arch_init(void)
 {
     klog_debug("Arch Init Starting...");
@@ -109,4 +100,7 @@ void arch_init(void)
 
     ext2_init();
     klog_debug("Ext2 Initialized");
+
+    proc_init();
+    klog_debug("Process Management Initialized");
 }

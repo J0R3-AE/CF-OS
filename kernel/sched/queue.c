@@ -35,3 +35,15 @@ Thread *runqueue_next(Thread *from) {
 
     return NULL;
 }
+
+void runqueue_remove(Thread *t)
+{
+    if (!t)
+        return;
+
+    if (!t->run_link.next || !t->run_link.prev)
+        return;
+
+    ListRemove(&t->run_link);
+    ListInit(&t->run_link);
+}

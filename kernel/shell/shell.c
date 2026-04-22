@@ -165,8 +165,8 @@ static void sh_dispatch_line(char *line)
 
         // ELF userland executables
         if (node->type == VNODE_TYPE_FILE) {
-            extern int exec_elf_vnode(struct vnode *vn);
-            if (exec_elf_vnode(node) == 0) {
+            extern int proc_exec_vnode(struct vnode *vn);
+            if (proc_exec_vnode(node) == 0) {
                 return; // never returns on success
             }
         }

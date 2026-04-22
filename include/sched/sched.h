@@ -57,8 +57,10 @@ typedef struct Thread {
     u64 wakeup_tick;
     struct Thread *next_sleep;
 
-    void (*entry)(void *);   // NEW
-    void *arg;               // NEW
+    void (*entry)(void *);
+    void *arg;
+
+    struct process *proc;   // 🔥 ADD THIS LINE
 } Thread;
 /* -------------------------------------------------------------------------- */
 /* Global Scheduler State                                                     */

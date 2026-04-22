@@ -10,3 +10,5 @@ sudo apt install build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev t
 sudo apt-get install libc6-dev
 sudo apt install grub-pc-bin grub-common xorriso mtools --yes
 sudo apt install build-essential gcc-multilibp
+sudo apt install e2fsprogs
+sudo modprobe loop

@@ -28,7 +28,8 @@ struct blockdev; /* Forward declaration */
  * This structure mirrors the on‑disk EXT2 superblock layout, with a few
  * additional computed fields (block_size, groups_count, bgdt_block).
  */
-typedef struct ext2_super {
+typedef struct ext2_super
+{
     struct blockdev *bdev; /**< Underlying block device. */
 
     u32 inodes_count;
@@ -66,9 +67,9 @@ typedef struct ext2_super {
     u32 feature_ro_compat;
 
     /* Computed fields (not part of the on‑disk superblock) */
-    u32 block_size;     /**< Block size in bytes. */
-    u32 groups_count;   /**< Number of block groups. */
-    u32 bgdt_block;     /**< Block containing the block group descriptor table. */
+    u32 block_size;   /**< Block size in bytes. */
+    u32 groups_count; /**< Number of block groups. */
+    u32 bgdt_block;   /**< Block containing the block group descriptor table. */
 } ext2_super_t;
 
 /* -------------------------------------------------------------------------- */
@@ -81,7 +82,8 @@ typedef struct ext2_super {
  *
  * Contains metadata and block pointers for files and directories.
  */
-typedef struct ext2_inode {
+typedef struct ext2_inode
+{
     u16 mode;
     u16 uid;
     u32 size;
@@ -99,7 +101,7 @@ typedef struct ext2_inode {
     u32 file_acl;
     u32 dir_acl;
     u32 faddr;
-    u8  osd2[12];
+    u8 osd2[12];
 } ext2_inode_disk_t;
 
 /* -------------------------------------------------------------------------- */
@@ -113,7 +115,8 @@ typedef struct ext2_inode {
  * Describes the location of block/inode bitmaps and inode tables for each
  * block group.
  */
-typedef struct ext2_bg_desc {
+typedef struct ext2_bg_desc
+{
     u32 block_bitmap;
     u32 inode_bitmap;
     u32 inode_table;
@@ -121,7 +124,7 @@ typedef struct ext2_bg_desc {
     u16 free_inodes_count;
     u16 used_dirs_count;
     u16 pad;
-    u8  reserved[12];
+    u8 reserved[12];
 } ext2_bg_desc_t;
 
 /* -------------------------------------------------------------------------- */
@@ -132,10 +135,11 @@ typedef struct ext2_bg_desc {
  * @struct ext2_node
  * @brief In‑memory representation of an EXT2 inode for VFS integration.
  */
-typedef struct ext2_node {
-    ext2_super_t *sb;       /**< Pointer to the filesystem superblock. */
-    u32 ino;                /**< Inode number. */
-    ext2_inode_disk_t inode;/**< Cached on‑disk inode. */
+typedef struct ext2_node
+{
+    ext2_super_t *sb;        /**< Pointer to the filesystem superblock. */
+    u32 ino;                 /**< Inode number. */
+    ext2_inode_disk_t inode; /**< Cached on‑disk inode. */
 } ext2_node_t;
 
 /* -------------------------------------------------------------------------- */

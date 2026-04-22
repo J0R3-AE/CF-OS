@@ -1,20 +1,9 @@
 #include "fs/vfs.h"
+#include "fs/tar.h"
 #include "libk/string.h"
 #include "libk/log.h"
 #include "libk/types.h"
 #include "mm/heap.h"
-
-struct tar_header
-{
-    char name[100];
-    char mode[8];
-    char uid[8];
-    char gid[8];
-    char size[12];
-    char mtime[12];
-    char chksum[8];
-    char typeflag;
-};
 
 /* ---------------- Helpers ---------------- */
 
@@ -100,7 +89,7 @@ static void split_path(const char *path, char *parent, char *leaf)
 
 /* ---------------- MAIN ---------------- */
 
-void tar_extract(struct vnode *root, void *start, u32 size)
+int tar_extract(struct vnode *root, void *start, u32 size)
 {
     if (!root || !start || size == 0)
     {

@@ -17,7 +17,7 @@
  * non‑negative return values. These codes are used by system calls,
  * VFS operations, memory allocators, and other kernel subsystems.
  */
-enum Errno
+typedef enum Errno
 {
     ERR_SUCCESS = 0,            /**< No error. */
     ERR_INVALID_ARGUMENT = -1,  /**< Invalid argument provided. */
@@ -30,7 +30,9 @@ enum Errno
     ERR_TIMED_OUT = -8,         /**< Operation timed out. */
     ERR_INTERRUPTED = -9,       /**< Operation was interrupted. */
     ERR_NOT_SUPPORTED = -10,    /**< Operation not supported. */
-    ERR_UNKNOWN = -11           /**< Unknown or unspecified error. */
+    ERR_UNKNOWN = -11,          /**< Unknown or unspecified error. */
+    ENOSYS = -12,               /**< Function not implemented. */
+    ENOEXEC = -13,              /**< Exec format error. */
 };
 
 /**
@@ -41,5 +43,4 @@ enum Errno
  * @param err Error code from the Errno enum.
  * @return Pointer to a static string describing the error.
  */
-const char *strerror(Errno err);
-
+//static inline const char *strerror(Errno err);

@@ -2,9 +2,11 @@
 #include "sched/sched.h"
 #include "libk/mem.h"
 #include "arch/context.h"
+#include "proc/proc.h" // 🔥 NEW
 
 static Thread *sleep_queue = NULL;
 volatile u32 g_ticks = 0;
+
 Thread *thread_create(void (*entry)(void *), void *arg,
                       u8 *stack_mem, size_t stack_size)
 {
@@ -16,8 +18,10 @@ Thread *thread_create(void (*entry)(void *), void *arg,
     t->stack_size = stack_size;
     t->state = THREAD_RUNNABLE;
 
-    t->entry = entry; // IMPORTANT
+    t->entry = entry;
     t->arg = arg;
+
+    t->proc = NULL; // 🔥 IMPORTANT (avoid garbage pointer)
 
     void *stack_top = stack_mem + stack_size;
     t->ctx = context_create(entry, arg, stack_top);
@@ -29,10 +33,15 @@ Thread *thread_create(void (*entry)(void *), void *arg,
 
 void thread_exit(void)
 {
-    g_current->state = THREAD_ZOMBIE;
+    Thread *t = g_current;
+
+    t->state = THREAD_ZOMBIE;
+
+    // TODO: later -> notify process / wait()
 
     ksched_yield();
 
+    // Should NEVER return
     for (;;)
     {
         __asm__ volatile("cli; hlt");
@@ -46,9 +55,10 @@ void thread_sleep(u32 ms)
     t->wakeup_tick = g_ticks + ms;
     t->state = THREAD_SLEEPING;
 
-    // NOTE: removal from runqueue MUST exist later
-    // runqueue_remove(t);
+    // 🔥 REQUIRED: remove from runqueue
+    runqueue_remove(t);
 
+    // add to sleep list
     t->next_sleep = sleep_queue;
     sleep_queue = t;
 
