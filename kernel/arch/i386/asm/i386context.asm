@@ -9,24 +9,20 @@ GLOBAL i386context_load
 ;   [esp + 8]  = new (context_t)
 
 i386context_switch:
-    ; stack layout:
-    ; [esp + 4] = old_ctx
-    ; [esp + 8] = new_ctx
+    ; save current context on current stack
+    pushfd              ; EFLAGS
+    pushad              ; EAX,ECX,EDX,EBX,ESP,EBP,ESI,EDI
 
-    pushfd              ; save EFLAGS
-    pushad              ; save general registers
+    ; esp now points at saved EDI (top of pushad/pushfd frame)
+    ; args are now at esp + 36 (old) and esp + 40 (new)
 
-    mov eax, [esp + 36] ; old_ctx (after pushad+pushfd = +32+4)
-    test eax, eax
-    jz .skip_save
+    mov     eax, [esp + 36]     ; eax = &old
+    mov     [eax], esp          ; *old = current esp (saved frame)
 
-    mov [eax], esp      ; *old_ctx = current ESP
+    mov     eax, [esp + 40]     ; eax = new
+    mov     esp, [eax]          ; esp = new saved frame
 
-.skip_save:
-    mov eax, [esp + 40] ; new_ctx
-    mov esp, eax        ; switch stack
-
-    popad               ; restore registers
-    popfd               ; restore flags
-
-    ret                 ; jump to new thread
+    ; restore new context
+    popad                       ; restore regs
+    popfd                       ; restore flags
+    ret

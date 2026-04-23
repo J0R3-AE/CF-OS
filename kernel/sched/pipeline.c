@@ -1,4 +1,3 @@
-// kernel/sched/pipeline.c
 #include "sched/sched.h"
 
 static volatile int need_resched = 0;
@@ -24,19 +23,17 @@ void ksched_yield(void)
     Thread *prev = g_current;
     Thread *next = runqueue_next(prev);
 
-    if (!next)
-        return;
-
-    if (prev == next)
+    if (!next || next == prev)
         return;
 
     if (prev && prev->state == THREAD_RUNNING)
-    {
         prev->state = THREAD_RUNNABLE;
-    }
 
     g_current = next;
     next->state = THREAD_RUNNING;
 
-    context_switch(&prev->ctx, next->ctx);
+    if (prev)
+        context_switch(&prev->ctx, next->ctx);
+    else
+        context_switch(NULL, next->ctx);
 }

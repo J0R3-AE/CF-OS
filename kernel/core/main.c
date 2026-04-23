@@ -8,7 +8,6 @@
 #include "sched/sched.h"
 
 extern void arch_init(void);
-extern void shell_main(void);
 
 #define STACK_SIZE 4096
 #define FB_VIRT 0xE0000000
@@ -22,27 +21,33 @@ void kmain(u32 magic, multiboot_info_t *mbi)
     g_mbi = mbi;
     klog_info("Kernel starting...");
 
+    /* Early devices */
     i386SERIAL_init();
 
     if (mbi->vbe_mode_info)
     {
         vbe_mode_info_t *vbe = (vbe_mode_info_t *)(uintptr_t)mbi->vbe_mode_info;
-        fbcon_init(vbe->physbase, vbe->Xres, vbe->Yres, vbe->pitch, vbe->bpp);
+
+        u32 fb_addr = vbe->physbase;
+        u32 fb_width = vbe->Xres;
+        u32 fb_height = vbe->Yres;
+        u32 fb_pitch = vbe->pitch;
+        u32 fb_bpp = vbe->bpp;
+
+        klog_misc("FB: addr=%x width=%u height=%u pitch=%u bpp=%u\n", fb_addr, fb_width, fb_height, fb_pitch, fb_bpp);
+        fbcon_init(fb_addr, fb_width, fb_height, fb_pitch, fb_bpp);
         TTY_set_fb_backend(1);
         TTY_init();
     }
 
     arch_init();
 
-    sched_init();
-    u8 *stack_sh = malloc(STACK_SIZE);
+    /* Idle loop */
 
-    Thread *shell_thread = thread_create(shell_main, NULL, stack_sh, STACK_SIZE);
-
-    sched_add(shell_thread);
-
-    sched_start();
 
     for (;;)
+    {
+        klog_fatal("kmain: reached idle loop, halting");
         __asm__ volatile("hlt");
+    }
 }

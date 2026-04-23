@@ -19,6 +19,8 @@ BUILD   := build
 ISO	 := $(BUILD)/iso
 KERNEL  := $(BUILD)/kernel.elf
 
+
+
 # === C Sources ===
 C_SRC := $(shell find kernel lib -name '*.c')
 
@@ -58,12 +60,8 @@ kernel.iso: $(KERNEL)
 	cp boot/grub/grub.cfg $(ISO)/boot/grub/grub.cfg
 	$(GRUB) -o $(BUILD)/minios.iso $(ISO)
 
-disk.img:
-	dd if=/dev/zero of=disk.img bs=1M count=64
-	mkfs.ext2 -F disk.img
-
 # === Run in QEMU ===
-run: disk.img kernel.iso
+run: kernel.iso
 	$(QEMU) -cdrom $(BUILD)/minios.iso -serial stdio -hda disk.img 
 
 run-elf:

@@ -49,7 +49,8 @@ static const struct vnode_ops ext2_vnode_ops = {
 static struct fs_type ext2_type = {
     .name = "ext2",
     .fs_ops = &ext2_fs_ops,
-    .root_vnode = NULL};
+    .root_vnode = NULL
+};
 
 void ext2_init(void)
 {

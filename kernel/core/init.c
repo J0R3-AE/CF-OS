@@ -32,17 +32,26 @@
 #include "fs/fat.h"
 #include "fs/ext2.h"
 
-#include "elf/elf.h"
-
 #include "sched/sched.h"
 #include "proc/proc.h"
 
+#pragma once
+
+#include "libk/types.h"
+
+#define HEAP_START  0x00800000   // 8MB
+#define HEAP_MAX    0x02000000   // 32MB
+
+#define TOTAL_RAM        (128 * 1024 * 1024)   // QEMU default
+#define KERNEL_END       0x00200000            // ~2MB
+#define KERNEL_STACK_TOP 0xC03FF000
+
+#define STACK_SIZE 4096
+
 static uint8_t kernel_stack[4096];
-extern void enter_user_mode(uint32_t entry, uint32_t esp);
 
-extern multiboot_info_t *g_mbi;
+extern Link g_fs_types; /* intrusive FS registry list head */ 
 
-/* if you are using initramfs later */
 void arch_init(void)
 {
     klog_debug("Arch Init Starting...");
@@ -89,6 +98,8 @@ void arch_init(void)
 
     ata_identify();
 
+    ListInit(&g_fs_types);
+
     ramfs_init();
     klog_debug("Ramfs Initialized");
 
@@ -100,7 +111,4 @@ void arch_init(void)
 
     ext2_init();
     klog_debug("Ext2 Initialized");
-
-    proc_init();
-    klog_debug("Process Management Initialized");
 }

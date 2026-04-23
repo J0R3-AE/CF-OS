@@ -11,7 +11,7 @@
 /* Globals                                                                    */
 /* -------------------------------------------------------------------------- */
 
-static Link g_fs_types; /* intrusive FS registry list head */
+Link g_fs_types; /* intrusive FS registry list head */
 static struct vnode *g_root_vnode;
 
 /* -------------------------------------------------------------------------- */
@@ -419,10 +419,25 @@ int vfs_create_exec(const char *path, exec_fn_t fn)
     if (r != 0)
         return r;
 
-    if (fn)
-        node->exec = fn;
-    else
-        exec_elf_vnode(node);
+    node->exec = fn;
 
     return EOK;
+}
+
+int vfs_exec(const char *path)
+{
+    struct vnode *vn;
+    int r = vfs_lookup(path, &vn);
+    if (r != 0)
+        return r;
+
+    /* function-backed exec */
+    if (vn->type == VNODE_TYPE_EXEC && vn->exec)
+    {
+        vn->exec(NULL);
+        return 0;
+    }
+
+    /* file-backed exec (ELF) */
+    return exec_elf_vnode(vn);
 }
