@@ -61,3 +61,4 @@ extern uintptr_t tss_base;
  */
 extern uint32_t tss_limit;
 
+void tss_init(uint32_t kernel_stack_top);

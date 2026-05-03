@@ -3,11 +3,12 @@
 #include "libk/string.h"
 #include "libk/printf.h"
 #include "proc/proc.h"
+#include "drivers/tty.h"
 
 #include "libk/log.h"
 #include "sched/sched.h"
 
-extern void arch_init(void);
+extern void kernel_init(void);
 
 #define STACK_SIZE 4096
 #define FB_VIRT 0xE0000000
@@ -34,16 +35,15 @@ void kmain(u32 magic, multiboot_info_t *mbi)
         u32 fb_pitch = vbe->pitch;
         u32 fb_bpp = vbe->bpp;
 
-        klog_misc("FB: addr=%x width=%u height=%u pitch=%u bpp=%u\n", fb_addr, fb_width, fb_height, fb_pitch, fb_bpp);
+        klog_log("FB: addr=%x width=%u height=%u pitch=%u bpp=%u\n", fb_addr, fb_width, fb_height, fb_pitch, fb_bpp);
         fbcon_init(fb_addr, fb_width, fb_height, fb_pitch, fb_bpp);
         TTY_set_fb_backend(1);
         TTY_init();
     }
 
-    arch_init();
+    kernel_init();
 
     /* Idle loop */
-
 
     for (;;)
     {

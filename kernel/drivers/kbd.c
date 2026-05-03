@@ -1,4 +1,5 @@
 #include "drivers/kbd.h"
+#include "drivers/keyboard.h"
 #include <stdbool.h>
 
 #define KBD_BUF_SIZE 256   /* power of two */
@@ -123,6 +124,7 @@ int kbd_read(void *buf, usize len)
         {
             out[count++] = (char)key;
         }
+
     }
 
     out[count] = '\0';

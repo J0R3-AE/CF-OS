@@ -3,9 +3,9 @@
 #include "libk/printf.h"
 #include "libk/log.h"
 
-/* GDT entries array - 5 entries: null, kernel code, kernel data, user code, user data */
-static gdt_entry_t gdt_entries[6];
-static gdt_ptr_t gdt_ptr;
+/* GDT entries array - 6 entries: null, kernel code, kernel data, user code, user data, TSS */
+gdt_entry_t gdt_entries[6];
+gdt_ptr_t gdt_ptr;
 
 /* External assembly function to load the GDT */
 extern void i386GDT_flush(u32);
@@ -38,7 +38,7 @@ void gdt_set_gate(s32 num, u32 base, u32 limit, u8 access, u8 gran)
     /* Set up granularity and access flags */
     gdt_entries[num].granularity |= gran & 0xF0;
     gdt_entries[num].access = access;
-    klog_info("GDT: Set gate %d base=%x limit=%x access=%x gran=%x", num, base, limit, access, gran);
+    klog_log("GDT: Set gate %d base=%x limit=%x access=%x gran=%x", num, base, limit, access, gran);
 }
 
 /*

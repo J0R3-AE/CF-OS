@@ -2,6 +2,7 @@
 
 #include "libk/types.h"
 #include "libk/string.h"
+#include "libk/mem.h"
 
 #include "drivers/fbcon.h"
 

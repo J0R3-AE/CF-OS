@@ -2,6 +2,7 @@
 #include "drivers/tty.h"
 #include "drivers/input.h"
 #include "libk/string.h"
+#include "libk/mem.h"
 #include "libk/printf.h"
 
 #define HISTORY_MAX 16
@@ -75,7 +76,7 @@ int readline(const char *prompt, char *buf, int max)
 
         /* ---------- ARROW KEYS ---------- */
 
-        if (c == KBD_ARROW_LEFT)
+        if (c == KEY_UP)
         {
             if (cursor > 0)
             {
@@ -85,7 +86,7 @@ int readline(const char *prompt, char *buf, int max)
             continue;
         }
 
-        if (c == KBD_ARROW_RIGHT)
+        if (c == KEY_RIGHT)
         {
             if (cursor < len)
             {
@@ -95,7 +96,7 @@ int readline(const char *prompt, char *buf, int max)
             continue;
         }
 
-        if (c == KBD_ARROW_UP)
+        if (c == KEY_UP)
         {
             if (history_count > 0 && history_pos > 0)
             {
@@ -110,7 +111,7 @@ int readline(const char *prompt, char *buf, int max)
             continue;
         }
 
-        if (c == KBD_ARROW_DOWN)
+        if (c == KEY_DOWN)
         {
             if (history_pos < history_count - 1)
             {

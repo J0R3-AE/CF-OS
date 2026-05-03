@@ -1,7 +1,10 @@
 #include "fs/ext2.h"
 #include "libk/string.h"
+#include "libk/mem.h"
 #include "libk/printf.h"
 #include "libk/log.h"
+
+#include "mm/heap.h"
 
 extern struct blockdev *blockdev_open(const char *name);
 // --------------------------------
@@ -55,7 +58,6 @@ static struct fs_type ext2_type = {
 void ext2_init(void)
 {
     vfs_register_fs(&ext2_type);
-    klog_info("vfs Registered %s filesystem", ext2_type.name);
 }
 
 // ---- helpers ----

@@ -88,7 +88,7 @@ static void idt_set_gate(u8 num, u32 base, u16 selector, u8 flags)
     idt_entries[num].selector = selector;
     idt_entries[num].always0 = 0;
     idt_entries[num].flags = flags;
-    klog_info("IDT: Set gate %u base=%x selector=%x flags=%x", num, base, selector, flags);
+    klog_log("IDT: Set gate %u base=%x selector=%x flags=%x", num, base, selector, flags);
 }
 
 /*
@@ -177,7 +177,7 @@ void idt_init(void)
 void register_interrupt_handler(u8 n, isr_handler_t handler)
 {
     interrupt_handlers[n] = handler;
-    klog_info("Registered handler for interrupt %u at %p", n, (void *)handler);
+    klog_log("Registered handler for interrupt %u at %p", n, (void *)handler);
 }
 
 /*
@@ -215,17 +215,4 @@ void irq_handler(registers_t *regs)
     {
         klog_warn("IRQ: Interrupt %u occurred with no handler", regs->int_no);
     }
-}
-
-void page_fault_handler(registers_t *r)
-{
-    uint32_t cr2;
-    asm volatile("mov %%cr2, %0" : "=r"(cr2));
-
-    klog_misc("PAGE FAULT: cr2=%x err=%x eip=%x\n",
-              cr2, r->err_code, r->eip);
-
-    // optionally halt so it doesn't spin
-    for (;;)
-        ;
 }

@@ -37,5 +37,5 @@ void net_loopback_init(void)
         return;
     }
 
-    klog_info("net: loopback ready");
+    klog_log("net: loopback ready");
 }

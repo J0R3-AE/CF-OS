@@ -1,5 +1,7 @@
 #include "sched/sched.h"
+
 #include "libk/mem.h"
+#include "mm/heap.h"
 
 Thread *g_current = NULL;
 Thread *g_idle_thread = NULL;

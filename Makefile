@@ -19,14 +19,11 @@ BUILD   := build
 ISO	 := $(BUILD)/iso
 KERNEL  := $(BUILD)/kernel.elf
 
-
-
 # === C Sources ===
 C_SRC := $(shell find kernel lib -name '*.c')
 
 # === ASM Sources ===
 ASM_SRC := $(shell find kernel -name '*.asm')
-
 
 # === Object Files ===
 OBJ := $(patsubst %.asm,$(BUILD)/%.o,$(ASM_SRC)) \
@@ -54,7 +51,7 @@ $(KERNEL): $(OBJ)
 	$(LD) $(LDFLAGS) $(OBJ) -o $(KERNEL)
 
 # === Build ISO ===
-kernel.iso: $(KERNEL)
+kernel.iso: $(KERNEL) user
 	@mkdir -p $(ISO)/boot/grub
 	cp $(KERNEL) $(ISO)/boot/kernel.elf
 	cp boot/grub/grub.cfg $(ISO)/boot/grub/grub.cfg
@@ -62,7 +59,7 @@ kernel.iso: $(KERNEL)
 
 # === Run in QEMU ===
 run: kernel.iso
-	$(QEMU) -cdrom $(BUILD)/minios.iso -serial stdio -hda disk.img 
+	$(QEMU) -cdrom $(BUILD)/minios.iso -serial stdio -hda disk.img
 
 run-elf:
 	$(QEMU) -kernel $(BUILD)/kernel.elf -serial stdio

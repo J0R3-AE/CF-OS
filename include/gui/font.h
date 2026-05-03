@@ -1,7 +1,6 @@
 /** @author JPEG */
 
-#ifndef FONT_H
-#define FONT_H
+#pragma once
 
 /** @warning KEEP THIS SHIT CLOSED ITS HUGE */
 unsigned char font8x16[][16] = {
@@ -2310,5 +2309,3 @@ unsigned char font8x16[][16] = {
         0x00,
     }, // 0x7F, delete
 };
-
-#endif

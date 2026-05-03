@@ -1,6 +1,7 @@
 #include "arch/tss.h"
 #include "arch/gdt.h"
 #include "libk/log.h"
+#include "libk/mem.h"
 
 extern void i386GDT_flush(u32);
 extern void tss_flush(uint16_t sel);
@@ -30,6 +31,7 @@ void tss_init(uint32_t kernel_stack_top)
 
     // GDT already loaded; no need to flush again
 
+    i386GDT_flush((u32)&gdt_ptr);
     tss_flush(0x28); // selector = 5 << 3
-    klog_info("Tss: esp0=%x ss0=%x", tss.esp0, tss.ss0);
+    klog_log("Tss: esp0=%x ss0=%x", tss.esp0, tss.ss0);
 }

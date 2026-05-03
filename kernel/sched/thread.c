@@ -1,6 +1,8 @@
 #include "sched/sched.h"
+
 #include "libk/mem.h"
 #include "arch/context.h"
+#include "mm/heap.h"
 
 static Thread *sleep_queue = NULL;
 volatile u32 g_ticks = 0;

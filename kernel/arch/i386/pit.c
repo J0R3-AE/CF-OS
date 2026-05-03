@@ -58,7 +58,7 @@ void pit_init(u32 hz)
     /* Make sure timer IRQ is enabled */
     pic_unmask_irq(0);
 
-    klog_info("PIT initialized at %u Hz", pit_frequency_hz);
+    klog_log("PIT initialized at %u Hz", pit_frequency_hz);
 }
 
 void pit_log(void)

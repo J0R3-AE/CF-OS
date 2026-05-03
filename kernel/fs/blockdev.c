@@ -2,6 +2,7 @@
 #include "drivers/ata.h"
 #include "libk/printf.h"
 #include "libk/mem.h"
+#include "libk/string.h"
 
 // Forward declarations of ATA read/write
 extern int ata_read28(u32 lba, void *buf, u32 count);

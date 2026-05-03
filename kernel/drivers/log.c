@@ -24,9 +24,9 @@ static const char *level_tag(log_level_t lvl) {
     case LOG_FATAL: 
     TTY_setcolor(TTY_COLOR_WHITE, TTY_COLOR_LIGHT_RED);
     return "FATAL";
-    case LOG_MISC:
+    case LOG_LOG:
     TTY_setcolor(TTY_COLOR_WHITE, TTY_COLOR_BLACK);
-    return "*";
+    return "LOG";
     }
     return "????";
 }

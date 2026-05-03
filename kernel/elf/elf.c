@@ -4,6 +4,7 @@
 #include "mm/pmm.h"
 #include "mm/heap.h"
 #include "libk/string.h"
+#include "libk/mem.h"
 #include "libk/log.h"
 
 /*
@@ -261,7 +262,7 @@ int elf32_load_image(struct page_directory *pd,
         if (ph->p_type != PT_LOAD)
             continue;
 
-        klog_misc("elf: seg vaddr=%x off=%x filesz=%x memsz=%x flags=%x\n",
+        klog_log("elf: seg vaddr=%x off=%x filesz=%x memsz=%x flags=%x\n",
                   ph->p_vaddr, ph->p_offset, ph->p_filesz, ph->p_memsz, ph->p_flags);
 
         if (load_segment(pd, vn, ph) < 0)

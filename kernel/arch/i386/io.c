@@ -1,5 +1,4 @@
 #include "arch/io.h"
-// #include "types.h"
 
 /* IO Read */
 u8 io_Read8(u16 port) {u8 data ;__asm__ volatile("inb %w1, %b0" : "=a"(data) : "Nd"(port)); return data;}       // 8bit read

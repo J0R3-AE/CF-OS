@@ -1,6 +1,11 @@
 #include "fs/fat.h"
+
 #include "libk/string.h"
+#include "libk/mem.h"
+#include "libk/types.h"
 #include "libk/printf.h"
+
+#include "mm/heap.h"
 
 extern struct blockdev *blockdev_open(const char *name);
 

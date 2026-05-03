@@ -1,0 +1,1 @@
+int sh_main() { while (1) {} }

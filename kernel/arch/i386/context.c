@@ -1,6 +1,7 @@
 /** @brief peen */
 
 #include "arch/context.h"
+#include "libk/log.h"
 
 context_t context_create(void (*entry)(void*), void* args, void* stack_top) {
     u32* stk = (u32*)stack_top;
@@ -21,6 +22,7 @@ context_t context_create(void (*entry)(void*), void* args, void* stack_top) {
     *(--stk) = 0;               // ESI
     *(--stk) = 0;               // EDI
 
+    klog_log("Context created for entry %p with args %p, stack top %p", (void*)entry, args, (void*)stack_top);
     return stk;
 }
 
@@ -43,4 +45,5 @@ void context_switch(context_t* old_ctx, context_t new_ctx) {
         : "r"(old_ctx), "r"(new_ctx)
         : "memory"
     );
+    klog_log("Context switched to new context at %p", (void*)new_ctx);
 }

@@ -1,10 +1,10 @@
-#include "init.h"
-
 #include "libk/string.h"
 #include "libk/mem.h"
 #include "libk/log.h"
+#include "libk/types.h"
 
 #include "arch/multiboot.h"
+#include "arch/io.h"
 #include "arch/gdt.h"
 #include "arch/tss.h"
 #include "arch/idt.h"
@@ -35,9 +35,7 @@
 #include "sched/sched.h"
 #include "proc/proc.h"
 
-#pragma once
 
-#include "libk/types.h"
 
 #define HEAP_START  0x00800000   // 8MB
 #define HEAP_MAX    0x02000000   // 32MB
@@ -52,63 +50,63 @@ static uint8_t kernel_stack[4096];
 
 extern Link g_fs_types; /* intrusive FS registry list head */ 
 
-void arch_init(void)
+void kernel_init(void)
 {
-    klog_debug("Arch Init Starting...");
+    klog_log("Arch Init Starting...");
     io_disableinterrupts();
-    klog_debug("Interrupts Disabled");
+    klog_log("Interrupts Disabled");
 
     gdt_init();
-    klog_debug("Gdt Initialized");
+    klog_log("Gdt Initialized");
 
     tss_init((uint32_t)(kernel_stack + sizeof(kernel_stack)));
-    klog_debug("Tss Initialized");
+    klog_log("Tss Initialized");
 
     pic_init();
-    klog_debug("Pic Initialized");
+    klog_log("Pic Initialized");
 
     idt_init();
     register_interrupt_handler(32, pit_handler);
     register_interrupt_handler(33, keyboard_irq_handler);
-    klog_debug("Idt Initialized");
+    klog_log("Idt Initialized");
 
     pit_init(100);
-    klog_debug("Pit Initialized");
+    klog_log("Pit Initialized");
 
     pmm_init(TOTAL_RAM, KERNEL_END);
-    klog_debug("Pmm Initialized");
+    klog_log("Pmm Initialized");
 
     heap_init(HEAP_START, HEAP_MAX, NULL);
-    klog_debug("Heap Initialized");
+    klog_log("Heap Initialized");
 
     ipc_init();
-    klog_debug("IPC Initialized");
+    klog_log("IPC Initialized");
 
     net_init();
-    klog_debug("Net Initialized");
+    klog_log("Net Initialized");
 
     net_loopback_init();
-    klog_debug("Loopback Initialized");
+    klog_log("Loopback Initialized");
 
     paging_init();
-    klog_debug("Paging Initialized");
+    klog_log("Paging Initialized");
 
     io_enableinterrupts();
-    klog_debug("Interrupts Enabled");
+    klog_log("Interrupts Enabled");
 
     ata_identify();
 
     ListInit(&g_fs_types);
 
     ramfs_init();
-    klog_debug("Ramfs Initialized");
+    klog_log("Ramfs Initialized");
 
     mount_init();
-    klog_debug("Mount Initialized");
+    klog_log("Mount Initialized");
 
     fat_init();
-    klog_debug("Fat Initialized");
+    klog_log("Fat Initialized");
 
     ext2_init();
-    klog_debug("Ext2 Initialized");
+    klog_log("Ext2 Initialized");
 }

@@ -1,7 +1,10 @@
 #include "fs/vfs.h"
-#include "libk/string.h"
-#include "libk/log.h"
+
 #include "libk/types.h"
+#include "libk/string.h"
+#include "libk/mem.h"
+#include "libk/log.h"
+
 #include "mm/heap.h"
 
 struct tar_header

@@ -27,7 +27,7 @@
  * @param mem_size_bytes   Total physical memory size in bytes.
  * @param kernel_end_paddr Physical end address of the kernel image.
  */
-void PMM_init(u32 mem_size_bytes, u32 kernel_end_paddr);
+void pmm_init(u32 mem_size_bytes, u32 kernel_end_paddr);
 
 /**
  * @brief Free a previously allocated physical frame.

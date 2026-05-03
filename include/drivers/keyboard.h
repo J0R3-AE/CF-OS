@@ -13,19 +13,24 @@
  */
 
 #include <stdint.h>
+#include "arch/idt.h"
 
 /* -------------------------------------------------------------------------- */
 /*  Special Keycodes                                                          */
 /* -------------------------------------------------------------------------- */
 
-#define KBD_ARROW_UP 0x80
-#define KBD_ARROW_DOWN 0x81
-#define KBD_ARROW_LEFT 0x82
-#define KBD_ARROW_RIGHT 0x83
-#define KEY_ENTER  0x100
-#define KEY_ESC    0x101
-#define KEY_UP     0x102
-#define KEY_DOWN   0x103
+/* printable */
+#define KEY_NONE        0
+#define KEY_BACKSPACE   8
+#define KEY_TAB         9
+#define KEY_ENTER       10
+#define KEY_ESC         27
+
+/* arrow keys (logical input layer) */
+#define KEY_UP          1001
+#define KEY_DOWN        1002
+#define KEY_LEFT        1003
+#define KEY_RIGHT       1004
 
 /* -------------------------------------------------------------------------- */
 /*  Keyboard Driver API                                                       */
@@ -46,7 +51,7 @@ void keyboard_init(void);
  * characters into the internal buffer. Called automatically by the IRQ
  * dispatch system.
  */
-void keyboard_irq_handler(void);
+void keyboard_irq_handler(struct registers *r);
 
 /**
  * @brief Check if a character is available.

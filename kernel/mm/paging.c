@@ -1,7 +1,9 @@
 #include "mm/paging.h"
 #include "mm/heap.h"
+#include "mm/pmm.h"
 #include "libk/types.h"
 #include "libk/string.h"
+#include "libk/mem.h"
 
 #define TEMP_MAP_VADDR 0xFEE00000
 
@@ -66,7 +68,7 @@ void paging_init(void)
     for (u32 addr = 0xFD000000; addr < 0xFD400000; addr += PAGE_SIZE)
         paging_map_page(kernel_pd, addr, addr, PAGE_PRESENT | PAGE_RW);
 
-        load_cr3(kernel_pd_phys);
+    load_cr3(kernel_pd_phys);
     enable_paging();
 }
 

@@ -217,8 +217,10 @@ void keyboard_init(void)
     extended = false;
 }
 
-void keyboard_irq_handler(void)
+void keyboard_irq_handler(struct registers *r)
 {
+    (void)*r; // unused
+
     while (io_Read8(KBD_STATUS_PORT) & 0x01u)
     {
         uint8_t scancode = io_Read8(KBD_DATA_PORT);

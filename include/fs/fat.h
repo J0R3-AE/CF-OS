@@ -20,6 +20,7 @@
 #include "blockdev.h"
 
 struct blockdev;
+struct fat_super;
 
 /* -------------------------------------------------------------------------- */
 /*  FAT Type Enum                                                             */

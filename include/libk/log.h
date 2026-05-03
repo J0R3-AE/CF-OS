@@ -27,7 +27,7 @@ typedef enum {
     LOG_WARN,   /**< Warnings about potential issues. */
     LOG_ERROR,  /**< Errors that do not halt the system. */
     LOG_FATAL,  /**< Critical errors; may halt the system. */
-    LOG_MISC    /**< Miscellaneous messages not tied to severity. */
+    LOG_LOG     /**< Miscellaneous messages not tied to severity. */
 } log_level_t;
 
 /**
@@ -98,6 +98,6 @@ void log_vwrite(log_level_t lvl, const char *fmt, va_list ap);
 /**
  * @brief Log a miscellaneous message.
  */
-#define klog_misc(fmt, ...)  log_write(LOG_MISC, fmt, ##__VA_ARGS__)
+#define klog_log(fmt, ...)  log_write(LOG_LOG, fmt, ##__VA_ARGS__)
 
 #endif /* KERNEL_LOG_H */
