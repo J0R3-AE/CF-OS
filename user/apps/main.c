@@ -4,6 +4,7 @@ int init_main(void);
 int sh_main(void);
 
 int main() {
-    init_main();
+    // Run init first, then shell
+    sh_main();
     return 0;
 }

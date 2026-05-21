@@ -72,7 +72,7 @@ void kernel_init(void)
     register_interrupt_handler(33, keyboard_irq_handler);
     KLOG_LOG("Keyboard handler registered");
 
-    pit_init(0.0001);
+    pit_init(0.000001); // 1MHz for now, we'll reprogram it later in sched_init
     KLOG_LOG("PIT initialized");
 
     pmm_init(TOTAL_RAM, KERNEL_END);

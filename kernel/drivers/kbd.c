@@ -1,5 +1,6 @@
 #include "drivers/kbd.h"
 #include "drivers/keyboard.h"
+#include "sched/sched.h"
 #include <stdbool.h>
 
 #define KBD_BUF_SIZE 256   /* power of two */
@@ -86,7 +87,7 @@ int kbd_read(void *buf, usize len)
 
         if (key < 0)
         {
-            asm volatile("hlt");
+            ksched_yield();
             continue;
         }
 

@@ -12,7 +12,7 @@ BUILD   ?= build
 USER_ELF := $(BUILD)/init.elf
 USER_TAR := $(BUILD)/init.tar
 
-USER_SRCS := apps/main.c apps/init.c
+USER_SRCS := apps/main.c apps/init.c apps/sh.c libc/libc.c
 USER_ASM := crt0.asm libc/syscall.asm
 USER_OBJS := $(patsubst %.c,$(BUILD)/%.o,$(USER_SRCS)) \
 	$(patsubst %.asm,$(BUILD)/%.o,$(USER_ASM))
@@ -30,7 +30,7 @@ $(BUILD)/%.o: %.asm
 
 $(USER_ELF): $(USER_OBJS) linker.ld
 	@mkdir -p $(dir $@)
-	$(LD) -m elf_i386 -T linker.ld $(BUILD)/crt0.o $(BUILD)/apps/main.o $(BUILD)/apps/init.o $(BUILD)/libc/syscall.o -o $(USER_ELF)
+	$(LD) -m elf_i386 -T linker.ld $(BUILD)/crt0.o $(BUILD)/apps/main.o $(BUILD)/apps/init.o $(BUILD)/apps/sh.o $(BUILD)/libc/libc.o $(BUILD)/libc/syscall.o -o $(USER_ELF)
 	@echo "Built user ELF: $(USER_ELF)"
 
 $(USER_TAR): $(USER_ELF)
