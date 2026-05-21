@@ -38,7 +38,6 @@ void gdt_set_gate(s32 num, u32 base, u32 limit, u8 access, u8 gran)
     /* Set up granularity and access flags */
     gdt_entries[num].granularity |= gran & 0xF0;
     gdt_entries[num].access = access;
-    klog_log("GDT: Set gate %d base=%x limit=%x access=%x gran=%x", num, base, limit, access, gran);
 }
 
 /*

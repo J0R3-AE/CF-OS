@@ -8,31 +8,8 @@
 static Link g_net_devices;
 static int g_net_ready = 0;
 
-static void net_copy_name(char *dst, const char *src)
-{
-    usize i = 0;
-    if (!dst)
-        return;
-
-    if (!src)
-    {
-        dst[0] = '\0';
-        return;
-    }
-
-    while (src[i] && i < NET_NAME_MAX - 1)
-    {
-        dst[i] = src[i];
-        i++;
-    }
-    dst[i] = '\0';
-
-    klog_log("net_copy_name: copied '%s' to '%s'", src, dst);
-}
-
 static int net_queue_empty(net_device_t *dev)
 {
-    klog_log("net_queue_empty: dev=%s empty=%d", dev->name, ListIsEmpty(&dev->queue));
     return !dev || ListIsEmpty(&dev->queue);
 }
 
@@ -42,8 +19,9 @@ void net_init(void)
         return;
 
     ListInit(&g_net_devices);
+    net_arp_init();
+    net_socket_init();
     g_net_ready = 1;
-    klog_log("net: initialized");
 }
 
 net_packet_t *net_packet_alloc(usize len)
@@ -66,7 +44,6 @@ net_packet_t *net_packet_alloc(usize len)
     pkt->capacity = len;
     ListInit(&pkt->link);
 
-    klog_log("net_packet_alloc: allocated packet with len=%zu", len);
     return pkt;
 }
 
@@ -77,8 +54,6 @@ void net_packet_free(net_packet_t *pkt)
 
     free(pkt->data);
     free(pkt);
-
-    klog_log("net_packet_free: freed packet with len=%zu", pkt->len);
 }
 
 int net_register_device(net_device_t *dev)
@@ -100,9 +75,9 @@ int net_register_device(net_device_t *dev)
         dev->mtu = NET_MTU_DEFAULT;
 
     ListInit(&dev->queue);
+    ListInit(&dev->rx_queue_link);
     ListBefore(&g_net_devices, &dev->rx_queue_link);
 
-    klog_log("net: registered device %s", dev->name);
     return NET_OK;
 }
 
@@ -122,7 +97,6 @@ int net_unregister_device(net_device_t *dev)
         net_packet_free(pkt);
     }
 
-    klog_log("net: unregistered device %s", dev->name);
     return NET_OK;
 }
 
@@ -135,28 +109,22 @@ net_device_t *net_find_device(const char *name)
     {
         net_device_t *dev = LinkData(it, net_device_t, rx_queue_link);
         if (strcmp(dev->name, name) == 0)
-
-            klog_log("net_find_device: found device '%s'", name);
-        return dev;
+            return dev;
     }
 
-    klog_warn("net_find_device: device '%s' not found", name);
     return NULL;
 }
 
 int net_send(net_device_t *dev, const void *data, usize len)
 {
     if (!dev || !data || len == 0)
-        klog_err("net: invalid arguments to net_send");
-    return NET_EINVAL;
+        return NET_EINVAL;
 
     if (!dev->xmit)
-        klog_err("net: device %s has no xmit function", dev->name);
-    return NET_ENOENT;
+        return NET_ENOENT;
 
     if (len > dev->mtu)
-        klog_log("net: packet size %zu exceeds MTU %zu for device %s", len, dev->mtu, dev->name);
-    return NET_E2BIG;
+        return NET_E2BIG;
 
     return dev->xmit(dev, data, len);
 }
@@ -164,31 +132,26 @@ int net_send(net_device_t *dev, const void *data, usize len)
 int net_rx_push(net_device_t *dev, const void *data, usize len)
 {
     if (!dev || !data || len == 0)
-        klog_err("net: invalid arguments to net_rx_push");
-    return NET_EINVAL;
+        return NET_EINVAL;
 
     net_packet_t *pkt = net_packet_alloc(len);
     if (!pkt)
-        klog_err("net: failed to allocate packet for RX push");
-    return NET_ENOMEM;
+        return NET_ENOMEM;
 
     memcpy(pkt->data, data, len);
     pkt->len = len;
 
     ListBefore(&dev->queue, &pkt->link);
-    klog_log("net: pushed packet into %s queue (len=%zu)", dev->name, len);
     return NET_OK;
 }
 
 int net_rx_pop(net_device_t *dev, void *buf, usize len, usize *out)
 {
-    if (!dev || !buf)
-        klog_err("net: invalid arguments to net_rx_pop");
-    return NET_EINVAL;
+    if (!dev || !buf || len == 0)
+        return NET_EINVAL;
 
     if (net_queue_empty(dev))
-        klog_err("net: no packets to pop from %s", dev->name);
-    return NET_EAGAIN;
+        return NET_EAGAIN;
 
     Link *node = dev->queue.next;
     ListRemove(node);
@@ -205,20 +168,23 @@ int net_rx_pop(net_device_t *dev, void *buf, usize len, usize *out)
         *out = n;
 
     net_packet_free(pkt);
-    klog_log("net: popped packet from %s", dev->name);
     return NET_OK;
 }
 
 void net_dump_device(net_device_t *dev)
 {
     if (!dev)
-    {
-        klog_log("net: <null device>");
         return;
-    }
 
-    klog_log("net: dev=%s mtu=%u flags=%x", dev->name, (u32)dev->mtu, dev->flags);
-    klog_log("net: mac=%02x:%02x:%02x:%02x:%02x:%02x",
-             dev->mac[0], dev->mac[1], dev->mac[2],
-             dev->mac[3], dev->mac[4], dev->mac[5]);
+    usize count = 0;
+    for (Link *it = dev->queue.next; it != &dev->queue; it = it->next)
+        count++;
+
+    KLOG_INFO("net device %s: mac=%x:%x:%x:%x:%x:%x mtu=%u flags=0x%x queue=%u",
+              dev->name,
+              dev->mac[0], dev->mac[1], dev->mac[2],
+              dev->mac[3], dev->mac[4], dev->mac[5],
+              (unsigned)dev->mtu,
+              (unsigned)dev->flags,
+              (unsigned)count);
 }

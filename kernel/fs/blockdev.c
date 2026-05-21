@@ -1,6 +1,6 @@
 #include "fs/blockdev.h"
 #include "drivers/ata.h"
-#include "libk/printf.h"
+#include "libk/log.h"
 #include "libk/mem.h"
 #include "libk/string.h"
 
@@ -32,6 +32,6 @@ struct blockdev *blockdev_open(const char *name)
     if (!strcmp(name, "ata0") || !strcmp(name, "hd0"))
         return &ata0;
 
-    printf("blockdev_open: unknown device '%s'\n", name);
+    KLOG_ERROR("blockdev_open: unknown device '%s'", name);
     return NULL;
 }

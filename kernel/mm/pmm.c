@@ -5,6 +5,7 @@
 #include "libk/string.h"
 #include "libk/mem.h"
 #include "libk/types.h"
+#include "libk/math.h"
 
 static u32 *frame_bitmap = 0; /* bitset: 1 = used, 0 = free */
 static u32 total_frames_count = 0;
@@ -62,7 +63,7 @@ void pmm_init(u32 mem_size_bytes, u32 kernel_end_paddr)
     total_frames_count = mem_size_bytes / PMM_FRAME_SIZE;
     u32 bitmap_size_bytes = ((total_frames_count + 31) >> 5) * 4u;
 
-    u32 bitmap_phys = (kernel_end_paddr + 0xFFFu) & ~0xFFFu; /* align up */
+    u32 bitmap_phys = align_up(kernel_end_paddr, PMM_FRAME_SIZE);
     frame_bitmap = (u32 *)(uptr)bitmap_phys;                 /* treat as physical pointer - integrate with your identity mapping */
 
     /* wipe bitmap */
@@ -98,8 +99,8 @@ void pmm_free_frame(u32 paddr)
 
 void pmm_reserve_region(u32 paddr_start, u32 paddr_end)
 {
-    paddr_start &= ~(PMM_FRAME_SIZE - 1);
-    paddr_end = (paddr_end + PMM_FRAME_SIZE - 1) & ~(PMM_FRAME_SIZE - 1);
+    paddr_start = align_down(paddr_start, PMM_FRAME_SIZE);
+    paddr_end = align_up(paddr_end, PMM_FRAME_SIZE);
     for (u32 a = paddr_start; a < paddr_end; a += PMM_FRAME_SIZE)
     {
         if (!test_frame(a))

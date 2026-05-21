@@ -91,6 +91,12 @@ void ramfs_init(void);
 void ramfs_set_dev_hooks(struct vnode *vn, int (*dev_read)(void *buf, usize len),
                          int (*dev_write)(const void *buf, usize len));
 
+/*
+ * Extract a ustar-format tarball into the given ramfs root vnode.
+ * The tarball should be a contiguous memory blob (start,size).
+ */
+void tar_extract(struct vnode *root, void *start, u32 size);
+
 /* -------------------------------------------------------------------------- */
 /*  Internal FS Operations (static, not exported)                             */
 /* -------------------------------------------------------------------------- */

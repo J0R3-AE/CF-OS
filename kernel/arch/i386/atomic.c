@@ -4,7 +4,6 @@
 u32 atomic_exchange(volatile u32 *ptr, u32 val)
 {
     __asm__ volatile("lock xchg %0, %1": "+r"(val), "+m"(*ptr):: "memory");
-    klog_log("XCHG: new=%x old=%x", val, *ptr);
     return val;
 }
 
@@ -12,7 +11,6 @@ u32 atomic_cmpxchg(volatile u32 *ptr, u32 expected, u32 desired)
 {{
         u32 prev;
         __asm__ volatile("lock cmpxchg %2, %1": "=a"(prev), "+m"(*ptr): "r"(desired), "0"(expected): "memory");
-        klog_log("CMPXCHG: expected=%x desired=%x prev=%x", expected, desired, prev);
         return prev;
 }}
 
@@ -24,7 +22,6 @@ u32 atomic_fetch_add(volatile u32 *ptr, u32 inc)
         old = __atomic_load_n(ptr, __ATOMIC_RELAXED);
         new = old + inc;
     } while (atomic_cmpxchg(ptr, old, new) != old);
-    klog_log("FETCH_ADD: inc=%x old=%x new=%x", inc, old, new);
     return old;
 }
 
@@ -36,7 +33,6 @@ u32 atomic_fetch_sub(volatile u32 *ptr, u32 dec)
         old = __atomic_load_n(ptr, __ATOMIC_RELAXED);
         new = old - dec;
     } while (atomic_cmpxchg(ptr, old, new) != old);
-    klog_log("FETCH_SUB: dec=%x old=%x new=%x", dec, old, new);
     return old;
 }
 

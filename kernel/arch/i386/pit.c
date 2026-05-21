@@ -37,7 +37,6 @@ void pit_handler(registers_t *r)
 
     g_ticks++;
 
-    
     wake_sleepers();
     sched_tick();
     pic_send_eoi(0);
@@ -50,20 +49,15 @@ void pit_init(u32 hz)
     pit_program(hz);
 
     /* Hook IRQ0 -> PIT handler */
-    
 
     keyboard_init();
-    
 
     /* Make sure timer IRQ is enabled */
     pic_unmask_irq(0);
-
-    klog_log("PIT initialized at %u Hz", pit_frequency_hz);
 }
 
 void pit_log(void)
 {
-    klog_debug("PIT tick: %u", g_ticks);
 }
 /* Optional helpers */
 u32 pit_get_ticks(void) { return g_ticks; }

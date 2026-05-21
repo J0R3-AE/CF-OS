@@ -4,6 +4,7 @@
 #include "libk/types.h"
 #include "libk/string.h"
 #include "libk/mem.h"
+#include "libk/math.h"
 
 #define TEMP_MAP_VADDR 0xFEE00000
 
@@ -27,8 +28,8 @@ static inline void enable_paging(void)
 
 static void identity_map_range(struct page_directory *pd, u32 map_bytes)
 {
-    u32 num_pages = (map_bytes + PAGE_SIZE - 1) / PAGE_SIZE;
-    u32 num_pt = (num_pages + 1023) / 1024;
+    u32 num_pages = ceil_div_u32(map_bytes, PAGE_SIZE);
+    u32 num_pt = ceil_div_u32(num_pages, 1024);
 
     for (u32 pd_index = 0; pd_index < num_pt; pd_index++)
     {
@@ -73,7 +74,7 @@ void paging_init(void)
 }
 
 // paging.c
-struct page_directory *paging_create_user_pd(u32 *out_phys)
+struct page_directory *paging_create_address_space(u32 *out_phys)
 {
     u32 pd_phys = pmm_alloc_frame();
     if (!pd_phys)
@@ -82,7 +83,14 @@ struct page_directory *paging_create_user_pd(u32 *out_phys)
     struct page_directory *pd = (void *)pd_phys;
     memset(pd, 0, PAGE_SIZE);
 
-    // copy ONLY kernel space (top 1GB)
+    // Copy kernel identity mappings for low memory so the kernel remains
+    // accessible after switching into the user page directory.
+    for (int i = 0; i < 4; i++)
+    {
+        pd->entries[i] = kernel_pd->entries[i];
+    }
+
+    // Copy kernel higher-half mappings too.
     for (int i = 768; i < 1024; i++)
     {
         pd->entries[i] = kernel_pd->entries[i];

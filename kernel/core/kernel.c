@@ -1,4 +1,6 @@
 #include "arch/multiboot.h"
+#include "arch/io.h"
+#include "drivers/fbcon.h"
 
 #include "libk/string.h"
 #include "libk/printf.h"
@@ -20,7 +22,7 @@ void kmain(u32 magic, multiboot_info_t *mbi)
     (void)magic;
 
     g_mbi = mbi;
-    klog_info("Kernel starting...");
+    KLOG_LOG("Kernel starting...");
 
     /* Early devices */
     i386SERIAL_init();
@@ -35,11 +37,14 @@ void kmain(u32 magic, multiboot_info_t *mbi)
         u32 fb_pitch = vbe->pitch;
         u32 fb_bpp = vbe->bpp;
 
-        klog_log("FB: addr=%x width=%u height=%u pitch=%u bpp=%u\n", fb_addr, fb_width, fb_height, fb_pitch, fb_bpp);
+        KLOG_LOG("FB: addr=%x width=%u height=%u pitch=%u bpp=%u", fb_addr, fb_width, fb_height, fb_pitch, fb_bpp);
         fbcon_init(fb_addr, fb_width, fb_height, fb_pitch, fb_bpp);
         TTY_set_fb_backend(1);
-        TTY_init();
     }
+
+    TTY_init();
+
+    KLOG_LOG("Welcome to MiniOS!");
 
     kernel_init();
 
@@ -47,7 +52,7 @@ void kmain(u32 magic, multiboot_info_t *mbi)
 
     for (;;)
     {
-        klog_fatal("kmain: reached idle loop, halting");
+        KLOG_FATAL("kmain: reached idle loop, halting");
         __asm__ volatile("hlt");
     }
 }

@@ -164,5 +164,6 @@ int elf32_validate(const Elf32_Ehdr *eh);
  * @return 0 on success, <0 on failure.
  */
 int elf32_load_image(struct page_directory *pd, struct vnode *vn, Elf32_Addr *entry_out);
+int elf32_load_image_from_memory(struct page_directory *pd, const void *image, u32 image_size, Elf32_Addr *entry_out);
 
 /* ELF_H */

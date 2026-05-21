@@ -45,8 +45,6 @@ void proc_init(void)
     memset(g_proc_used, 0, sizeof(g_proc_used));
     g_next_pid = 1;
     g_boot_ready = 1;
-
-    klog_info("proc: initialized");
 }
 
 process_t *proc_current(void)

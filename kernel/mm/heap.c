@@ -4,6 +4,8 @@
 
 #include "libk/string.h"
 #include "libk/mem.h"
+#include "libk/math.h"
+#include "libk/log.h"
 
 // Simple heap allocator using a linked list of free/used chunks. This is a very basic implementation and can be improved in many ways (e.g. better free chunk management, splitting/merging chunks, support for aligned allocations, etc.). For simplicity, it expands the heap by allocating pages from the physical memory manager as needed.
 typedef struct heap_chunk
@@ -24,13 +26,34 @@ static int expand_heap_by_pages(u32 pages)
 {
     for (u32 i = 0; i < pages; ++i)
     {
-        u32 f = pmm_alloc_frame();
-        if (!f)
+        if (heap_end_addr + PAGE_SIZE > heap_max_addr)
+        {
+            KLOG_ERROR("expand_heap_by_pages: heap max exceeded");
             return -1;
-        vmm_map_page(f, heap_end_addr, PAGE_RW, heap_pd);
-        memset((void *)(uintptr_t)heap_end_addr, 0, PAGE_SIZE);
+        }
+
+        if (heap_pd)
+        {
+            u32 f = pmm_alloc_frame();
+            if (!f)
+            {
+                KLOG_ERROR("expand_heap_by_pages: failed to allocate frame for heap expansion");
+                return -1;
+            }
+            vmm_map_page(f, heap_end_addr, PAGE_RW, heap_pd);
+        }
+        else
+        {
+            /* Early boot: use identity-mapped heap region before paging is enabled. */
+            u32 phys = heap_end_addr;
+            pmm_reserve_region(phys, phys + PAGE_SIZE);
+        }
+
+        void *vaddr = (void *)(uintptr_t)heap_end_addr;
+        memset(vaddr, 0, PAGE_SIZE);
         heap_end_addr += PAGE_SIZE;
     }
+    KLOG_OKAY("expand_heap_by_pages: expanded heap by %u pages, new end address = 0x%x", pages, heap_end_addr);
     return 0;
 }
 
@@ -41,6 +64,7 @@ void heap_init(u32 heap_start, u32 heap_max, page_directory_t *dir)
     heap_max_addr = heap_max;
     heap_pd = dir;
     heap_base = NULL;
+    KLOG_INFO("heap_init: heap initialized with start=0x%x max=0x%x", heap_start_addr, heap_max_addr);
 }
 
 /* find a suitable free chunk with first-fit */
@@ -52,7 +76,9 @@ static heap_chunk_t *find_free_chunk(usize size)
         if (cur->free && cur->size >= size)
             return cur;
         cur = cur->next;
+        KLOG_INFO("find_free_chunk: checking chunk at %p (size=%u free=%d)", cur, cur ? cur->size : 0, cur ? cur->free : 0);
     }
+    KLOG_WARN("find_free_chunk: no suitable free chunk found for size %u", size);
     return NULL;
 }
 
@@ -62,7 +88,11 @@ static heap_chunk_t *request_space(usize size)
     usize total = size + sizeof(heap_chunk_t);
     u32 needed_pages = (total + PAGE_SIZE - 1) / PAGE_SIZE;
     if (expand_heap_by_pages(needed_pages) < 0)
+    {
+        KLOG_ERROR("request_space: failed to expand heap for size %u", size);
         return NULL;
+    }
+
     heap_chunk_t *chunk = (heap_chunk_t *)(uintptr_t)(heap_end_addr - needed_pages * PAGE_SIZE);
     chunk->size = size;
     chunk->free = 0;
@@ -71,6 +101,7 @@ static heap_chunk_t *request_space(usize size)
     /* append to list */
     if (!heap_base)
     {
+        KLOG_INFO("request_space: allocated first chunk at %p (size=%u)", chunk, size);
         heap_base = chunk;
     }
     else
@@ -80,7 +111,9 @@ static heap_chunk_t *request_space(usize size)
             cur = cur->next;
         cur->next = chunk;
         chunk->prev = cur;
+        KLOG_INFO("request_space: allocated new chunk at %p (size=%u)", chunk, size);
     }
+    KLOG_OKAY("request_space: allocated new chunk at %p (size=%u)", chunk, size);
     return chunk;
 }
 
@@ -92,11 +125,16 @@ void *malloc(usize size)
     if (chunk)
     {
         chunk->free = 0;
+        KLOG_WARN("malloc: reusing free chunk at %p for size %u", chunk, size);
         return (void *)((uintptr_t)chunk + sizeof(heap_chunk_t));
     }
     chunk = request_space(size);
     if (!chunk)
+    {
+        KLOG_ERROR("malloc: failed to allocate chunk for size %u", size);
         return NULL;
+    }
+    KLOG_OKAY("malloc: allocated new chunk at %p for size %u", chunk, size);
     return (void *)((uintptr_t)chunk + sizeof(heap_chunk_t));
 }
 
@@ -112,23 +150,33 @@ void free(void *ptr)
         chunk->size += sizeof(heap_chunk_t) + chunk->next->size;
         chunk->next = chunk->next->next;
         if (chunk->next)
+        {
             chunk->next->prev = chunk;
+        }
+        KLOG_INFO("free: coalesced with next chunk at %p, new size = %u", chunk->next, chunk->size);
     }
     if (chunk->prev && chunk->prev->free)
     {
         chunk->prev->size += sizeof(heap_chunk_t) + chunk->size;
         chunk->prev->next = chunk->next;
         if (chunk->next)
+        {
             chunk->next->prev = chunk->prev;
+        }
+        KLOG_INFO("free: coalesced with previous chunk at %p, new size = %u", chunk->prev, chunk->prev->size);
     }
 }
 
 void free_align(void *ptr)
 {
     if (!ptr)
+    {
+        KLOG_WARN("free_align: null pointer passed to free_align");
         return;
+    }
     void *raw = ((void **)ptr)[-1];
     free(raw);
+    KLOG_OKAY("free_align: deallocated aligned memory at %p", ptr);
 }
 
 /* Return usable payload size for a pointer returned by kmalloc */
@@ -155,10 +203,8 @@ void *calloc(usize nmemb, usize size)
     usize total = nmemb * size;
     void *p = malloc(total);
     if (!p)
-        return NULL; /* zero memory without relying on libc */
-    unsigned char *b = (unsigned char *)p;
-    for (usize i = 0; i < total; ++i)
-        b[i] = 0;
+        return NULL; /* zero memory */
+    memset(p, 0, total);
     return p;
 }
 /* realloc: grow or shrink an allocation; preserves contents up to min(old,new) */
@@ -187,16 +233,24 @@ void *realloc(void *ptr, usize new_size)
     void *new_ptr = malloc(new_size);
     if (!new_ptr)
         return NULL; /* copy old contents */
-    unsigned char *d = (unsigned char *)new_ptr;
-    unsigned char *s = (unsigned char *)ptr;
-    for (usize i = 0; i < old_size; ++i)
-        d[i] = s[i];
+    memcpy(new_ptr, ptr, old_size);
     free(ptr);
     return new_ptr;
 }
 
 void *malloc_align(usize size, usize align)
 {
-    /* not implemented: simple wrapper for now */
-    return malloc(size);
+    if (align == 0 || (align & (align - 1)) != 0)
+        return NULL;
+
+    usize total = size + align - 1 + sizeof(void *);
+    void *raw = malloc(total);
+    if (!raw)
+        return NULL;
+
+    uintptr_t raw_addr = (uintptr_t)raw + sizeof(void *);
+    u32 aligned = align_up((u32)raw_addr, (u32)align);
+    void **store = (void **)(uintptr_t)(aligned - sizeof(void *));
+    *store = raw;
+    return (void *)(uintptr_t)aligned;
 }

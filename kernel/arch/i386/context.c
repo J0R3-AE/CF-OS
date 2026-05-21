@@ -3,30 +3,38 @@
 #include "arch/context.h"
 #include "libk/log.h"
 
+extern void kthread_entry(void);
+
 context_t context_create(void (*entry)(void*), void* args, void* stack_top) {
+    (void)entry;
+    (void)args;
+
     u32* stk = (u32*)stack_top;
 
-    // Push return address for 'ret' in context_switch
-    *(--stk) = (u32)entry;      // return address (EIP after ret)
+    // Push the return address for context_switch. The trampoline will
+    // obtain the current thread from g_current and invoke its entry.
+    *(--stk) = (u32)kthread_entry;
 
     // Push EFLAGS (will be restored by popfl)
     *(--stk) = 0x202;           // EFLAGS (IF=1)
 
-    // Push general-purpose registers for popal
-    *(--stk) = (u32)args;       // EAX (argument)
+    // Push a fake pushal frame. The context_switch implementation does
+    // popal/popfl/ret, so the stack must look like a saved pushal frame.
+    *(--stk) = 0;               // EAX
     *(--stk) = 0;               // ECX
     *(--stk) = 0;               // EDX
     *(--stk) = 0;               // EBX
-    *(--stk) = 0;               // ESP (ignored by popal)
+    u32 *ebx_slot = stk;
+    *(--stk) = (u32)ebx_slot;   // ESP placeholder points to saved EBX
     *(--stk) = 0;               // EBP
     *(--stk) = 0;               // ESI
     *(--stk) = 0;               // EDI
 
-    klog_log("Context created for entry %p with args %p, stack top %p", (void*)entry, args, (void*)stack_top);
     return stk;
 }
 
 void context_switch(context_t* old_ctx, context_t new_ctx) {
+    KLOG_INFO("context_switch: old_ctx=%p new_ctx=%p", old_ctx, new_ctx);
     asm volatile(
         "pushfl\n\t"          // save EFLAGS
         "pushal\n\t"          // save GPRs
@@ -45,5 +53,4 @@ void context_switch(context_t* old_ctx, context_t new_ctx) {
         : "r"(old_ctx), "r"(new_ctx)
         : "memory"
     );
-    klog_log("Context switched to new context at %p", (void*)new_ctx);
 }

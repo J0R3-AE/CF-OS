@@ -14,7 +14,7 @@ void runqueue_add(Thread *t)
     if (!t)
         return;
 
-    if (t->run_link.next || t->run_link.prev)
+    if (!ListIsEmpty(&t->run_link))
         return;
 
     ListBefore(&g_run_queue, &t->run_link);
@@ -25,7 +25,7 @@ void runqueue_remove(Thread *t)
     if (!t)
         return;
 
-    if (!t->run_link.next || !t->run_link.prev)
+    if (ListIsEmpty(&t->run_link))
         return;
 
     ListRemove(&t->run_link);

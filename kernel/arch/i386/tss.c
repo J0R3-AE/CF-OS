@@ -33,5 +33,4 @@ void tss_init(uint32_t kernel_stack_top)
 
     i386GDT_flush((u32)&gdt_ptr);
     tss_flush(0x28); // selector = 5 << 3
-    klog_log("Tss: esp0=%x ss0=%x", tss.esp0, tss.ss0);
 }

@@ -1,6 +1,7 @@
 #include "fs/ext2.h"
 #include "libk/string.h"
 #include "libk/mem.h"
+#include "libk/math.h"
 #include "libk/printf.h"
 #include "libk/log.h"
 
@@ -67,7 +68,6 @@ static int ext2_read_block(ext2_super_t *sb, u32 block, void *buf)
     u32 lba = (sb->block_size / sb->bdev->sector_size) * block;
     u32 count = sb->block_size / sb->bdev->sector_size;
     return sb->bdev->read(sb->bdev, lba, count, buf);
-    klog_info("ext2: Read block %u (lba=%u, count=%u)", block, lba, count);
 }
 
 static int ext2_write_block(ext2_super_t *sb, u32 block, const void *buf)
@@ -75,7 +75,6 @@ static int ext2_write_block(ext2_super_t *sb, u32 block, const void *buf)
     u32 lba = (sb->block_size / sb->bdev->sector_size) * block;
     u32 count = sb->block_size / sb->bdev->sector_size;
     return sb->bdev->write(sb->bdev, lba, count, buf);
-    klog_info("ext2: Wrote block %u (lba=%u, count=%u)", block, lba, count);
 }
 
 static int ext2_read_inode(ext2_super_t *sb, u32 ino, ext2_inode_disk_t *out)
@@ -99,7 +98,6 @@ static int ext2_read_inode(ext2_super_t *sb, u32 ino, ext2_inode_disk_t *out)
 
     ext2_read_block(sb, block, buf);
     memcpy(out, buf + offset, sizeof(ext2_inode_disk_t));
-    klog_info("ext2: Read inode %u (group=%u, index=%u, block=%u, offset=%u)", ino, group, index, block, offset);
     return 0;
 }
 
@@ -131,7 +129,6 @@ static int ext2_write_inode(ext2_super_t *sb, u32 ino, const ext2_inode_disk_t *
     memcpy(buf + offset, in, sizeof(ext2_inode_disk_t));
 
     return ext2_write_block(sb, block, buf);
-    klog_info("ext2: Wrote inode %u (group=%u, index=%u, block=%u, offset=%u)", ino, group, index, block, offset);
 }
 
 static int ext2_alloc_inode(ext2_super_t *sb, u32 *out_ino, u16 mode)
@@ -153,21 +150,18 @@ static int ext2_alloc_inode(ext2_super_t *sb, u32 *out_ino, u16 mode)
         if (ext2_read_block(sb,
                             bgdt_block + (group / desc_per_block),
                             buf) != 0)
-            klog_err("ext2: Failed to read BGDT block for group %u", group);
-        continue;
+            continue;
 
         ext2_bg_desc_t *bgd =
             (ext2_bg_desc_t *)(buf + (group % desc_per_block) * sizeof(ext2_bg_desc_t));
 
         if (bgd->free_inodes_count == 0)
 
-            klog_warn("ext2: Group %u has no free inodes", group);
-        continue;
+            continue;
 
         /* Read inode bitmap */
         if (ext2_read_block(sb, bgd->inode_bitmap, bitmap) != 0)
         {
-            klog_err("ext2: Failed to read inode bitmap for group %u", group);
             continue;
 
             /* Scan bitmap */
@@ -211,7 +205,6 @@ static int ext2_alloc_inode(ext2_super_t *sb, u32 *out_ino, u16 mode)
 
                             free(bitmap);
                             *out_ino = ino;
-                            klog_info("ext2: Allocated inode %u (group=%u, local_index=%u)", ino, group, local_index);
                             return 0;
                         }
                     }
@@ -220,7 +213,6 @@ static int ext2_alloc_inode(ext2_super_t *sb, u32 *out_ino, u16 mode)
         }
 
         free(bitmap);
-        klog_warn("ext2: No free inode found");
         return -1; /* no free inode found */
     }
 }
@@ -240,7 +232,6 @@ static struct vnode *ext2_alloc_vnode(struct mount *mp, ext2_super_t *sb, u32 in
     memcpy(&node->inode, disk, sizeof(*disk));
 
     vn->fs_data = node;
-    klog_info("ext2: Allocated vnode for inode %u (type=%s)", ino, (vn->type == VNODE_TYPE_DIR) ? "dir" : "file");
     return vn;
 }
 
@@ -251,7 +242,6 @@ static int ext2_mount_fn(struct mount *mp, const char *opts)
     struct blockdev *bdev = blockdev_open(opts);
     if (!bdev)
     {
-        klog_err("ext2: blockdev_open('%s') failed", opts);
         return -1;
     }
 
@@ -262,10 +252,6 @@ static int ext2_mount_fn(struct mount *mp, const char *opts)
     u8 buf[1024];
     // superblock at block 1, offset 1024
     int rc = bdev->read(bdev, 2, 2, buf); // assuming 512-byte sectors
-
-    klog_info("ext2: read rc=%d", rc);
-    klog_info("ext2: first 16 bytes: | %u %u %u %u | %u %u %u %u | %u %u %u %u | %u %u %u %u |",
-              buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8], buf[9], buf[10], buf[11], buf[12], buf[13], buf[14], buf[15]);
 
     memcpy(&sb->inodes_count, buf + 0, 4);
     memcpy(&sb->blocks_count, buf + 4, 4);
@@ -280,11 +266,8 @@ static int ext2_mount_fn(struct mount *mp, const char *opts)
     memcpy(&sb->inode_size, buf + 88, 2);
     memcpy(&sb->first_ino, buf + 84, 4);
 
-    klog_info("ext2: magic=0x%x", sb->magic);
-
     if (sb->magic != 0xEF53)
     {
-        klog_fatal("ext2: bad magic 0x%x (expected 0xEF53)", sb->magic);
         free(sb);
         return -1;
     }
@@ -301,9 +284,6 @@ static int ext2_mount_fn(struct mount *mp, const char *opts)
     struct vnode *root = ext2_alloc_vnode(mp, sb, 2, &root_inode);
     mp->root_vnode = root;
 
-    klog_info("ext2: Mounted '%s' with block size %u, %u blocks, %u inodes, %u free blocks, %u free inodes",
-              opts, sb->block_size, sb->blocks_count, sb->inodes_count,
-              sb->free_blocks_count, sb->free_inodes_count);
     return 0;
 }
 static int ext2_unmount_fn(struct mount *mp)
@@ -348,8 +328,7 @@ static int ext2_lookup_vn(struct vnode *dir, const char *name, struct vnode **ou
     ext2_inode_disk_t *inode = &node->inode;
 
     if (!(inode->mode & 0x4000))
-        klog_err("ext2: lookup '%s' in inode %u failed: not a directory", name, node->ino);
-    return -1; // not dir
+        return -1; // not dir
 
     u8 *block = (u8 *)malloc(sb->block_size);
     u32 size = inode->size;
@@ -378,7 +357,6 @@ static int ext2_lookup_vn(struct vnode *dir, const char *name, struct vnode **ou
                     ext2_read_inode(sb, de->ino, &child_inode);
                     *out = ext2_alloc_vnode(dir->mount, sb, de->ino, &child_inode);
                     free(block);
-                    klog_info("ext2: Found '%s' in dir inode %u as inode %u", name, node->ino, de->ino);
                     return 0;
                 }
             }
@@ -388,7 +366,6 @@ static int ext2_lookup_vn(struct vnode *dir, const char *name, struct vnode **ou
     }
 
     free(block);
-    klog_err("ext2: lookup '%s' in dir inode %u failed", name, node->ino);
     return -1;
 }
 
@@ -429,7 +406,6 @@ static int ext2_readdir_vn(struct vnode *vn, usize index, const char **name_out,
                     *name_out = name_buf;
                     *type_out = (de->file_type == 2) ? VNODE_TYPE_DIR : VNODE_TYPE_FILE;
                     free(block);
-                    klog_info("ext2: readdir index %zu in dir inode %u found '%s' (inode %u)", index, node->ino, name_buf, de->ino);
                     return 0;
                 }
                 cur++;
@@ -440,7 +416,6 @@ static int ext2_readdir_vn(struct vnode *vn, usize index, const char **name_out,
     }
 
     free(block);
-    klog_err("ext2: readdir index %zu in dir inode %u failed", index, node->ino);
     return -1;
 }
 
@@ -484,7 +459,6 @@ static int ext2_read_vn(struct vnode *vn, void *buf, usize off, usize len, usize
 
     free(block);
     *out = done;
-    klog_info("ext2: Read %zu bytes from inode %u", done, node->ino);
     return 0;
 }
 
@@ -552,7 +526,6 @@ static int ext2_alloc_block(ext2_super_t *sb, u32 *out_block)
 
                         free(bitmap);
                         *out_block = block;
-                        klog_info("ext2: Allocated block %u (group=%u, local_index=%u)", block, group, byte * 8 + bit);
                         return 0;
                     }
                 }
@@ -560,7 +533,6 @@ static int ext2_alloc_block(ext2_super_t *sb, u32 *out_block)
         }
     }
 
-    klog_err("ext2: No free block found");
     free(bitmap);
     return -1; // no free blocks anywhere
 }
@@ -574,7 +546,7 @@ static int ext2_dir_add_entry(ext2_super_t *sb,
     u32 block_size = sb->block_size;
     u32 name_len = strlen(name);
     u32 need_len = sizeof(struct ext2_dirent) + name_len;
-    need_len = (need_len + 3) & ~3; // 4‑byte alignment
+    need_len = align_up(need_len, 4); // 4‑byte alignment
 
     u8 *block = malloc(block_size);
     if (!block)
@@ -591,7 +563,6 @@ static int ext2_dir_add_entry(ext2_super_t *sb,
             if (ext2_alloc_block(sb, &blk) != 0)
             {
                 free(block);
-                klog_err("ext2: Failed to allocate block for new directory entry");
                 return -1;
             }
 
@@ -612,7 +583,6 @@ static int ext2_dir_add_entry(ext2_super_t *sb,
 
             ext2_write_block(sb, blk, block);
             free(block);
-            klog_info("ext2: Added directory entry '%s' (inode %u) in new block %u", name, child_ino, blk);
             return 0;
         }
 
@@ -630,7 +600,6 @@ static int ext2_dir_add_entry(ext2_super_t *sb,
             if (de->rec_len == 0)
             {
                 free(block);
-                klog_err("ext2: Corrupted directory block %u: rec_len=0 at offset %u", blk, off);
                 return -1; // corrupted directory
             }
 
@@ -643,7 +612,7 @@ static int ext2_dir_add_entry(ext2_super_t *sb,
 
         /* Compute actual size of last entry */
         u32 actual_len = sizeof(struct ext2_dirent) + de->name_len;
-        actual_len = (actual_len + 3) & ~3;
+        actual_len = align_up(actual_len, 4);
 
         u32 slack = de->rec_len - actual_len;
 
@@ -665,7 +634,6 @@ static int ext2_dir_add_entry(ext2_super_t *sb,
 
             ext2_write_block(sb, blk, block);
             free(block);
-            klog_info("ext2: Added directory entry '%s' (inode %u) in existing block %u", name, child_ino, blk);
             return 0;
         }
 
@@ -734,7 +702,7 @@ static int ext2_create_vn(struct vnode *dir, const char *name,
         de->name_len = 1;
         de->file_type = 2;
         u32 rec_len = sizeof(struct ext2_dirent) + 1;
-        rec_len = (rec_len + 3) & ~3;
+        rec_len = align_up(rec_len, 4);
         de->rec_len = rec_len;
         de->name[0] = '.';
 

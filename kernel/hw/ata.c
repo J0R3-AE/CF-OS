@@ -11,7 +11,6 @@ static int ata_wait_bsy(void)
         if (!(io_Read8(ATA_PRIMARY_IO + ATA_REG_STATUS) & ATA_SR_BSY))
             return 0;
 
-    klog_warn("ATA: BSY timeout");
     return -1;
 }
 
@@ -21,7 +20,6 @@ static int ata_wait_drq(void)
         if (io_Read8(ATA_PRIMARY_IO + ATA_REG_STATUS) & ATA_SR_DRQ)
             return 0;
 
-    klog_warn("ATA: DRQ timeout");
     return -1;
 }
 
@@ -42,7 +40,6 @@ int ata_identify(void)
     u8 status = io_Read8(ATA_PRIMARY_IO + ATA_REG_STATUS);
     if (status == 0)
     {
-        klog_warn("ATA: no device");
         return -1;
     }
 
@@ -52,7 +49,6 @@ int ata_identify(void)
     status = io_Read8(ATA_PRIMARY_IO + ATA_REG_STATUS);
     if (status & ATA_SR_ERR)
     {
-        klog_warn("ATA: error");
         return -1;
     }
 
@@ -81,14 +77,11 @@ int ata_identify(void)
             break;
     }
 
-    klog_log("ATA Model: %s", model);
-
     u32 sectors =
         ((u32)id_data[60]) |
         ((u32)id_data[61] << 16);
 
-    klog_log("ATA Size: %u sectors (%u MB)", sectors, sectors / 2048);
-
+    KLOG_LOG("ATA: model='%s' sectors=%u", model, sectors);
     return 0;
 }
 
@@ -121,8 +114,6 @@ int ata_read28(u32 lba, void *buf, u32 count)
         lba++;
     }
 
-    klog_log("ATA: read %u sectors starting at LBA %u into buffer %p",
-             count, start_lba, buf);
     return 0;
 }
 
@@ -155,7 +146,5 @@ int ata_write28(u32 lba, const void *buf, u32 count)
         lba++;
     }
 
-    klog_log("ATA: write %u sectors starting at LBA %u from buffer %p",
-             count, start_lba, buf);
     return 0;
 }

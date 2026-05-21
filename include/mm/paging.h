@@ -97,6 +97,15 @@ void paging_switch_phys(u32 pd_phys);
 void paging_switch(struct page_directory *pd);
 
 /**
+ * @brief Temporarily map a physical frame into the kernel address space.
+ *
+ * This helper is used while loading process pages and writing to newly
+ * allocated frames before enabling user page tables.
+ */
+void *paging_temp_map_frame(struct page_directory *pd, u32 phys);
+void paging_temp_unmap_frame(struct page_directory *pd);
+
+/**
  * @brief Map a single 4 KiB page.
  *
  * Maps virtual address @p virt to physical address @p phys with the given flags.

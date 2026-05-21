@@ -35,16 +35,27 @@ int mount_do_mount(struct fs_type *fst, const char *source, const char *target, 
     if (!fst || !target)
         return EINVAL;
 
+    KLOG_INFO("mount_do_mount: fst=%p type=%s source=%s target=%s", fst, fst->name, source ? source : "(null)", target);
+
     if (find_mount_by_target(target))
+    {
+        KLOG_ERROR("mount_do_mount: target %s is already mounted", target);
         return ENOENT;
+    }
 
     struct mount *m = calloc(1, sizeof(*m));
     if (!m)
+    {
+        KLOG_ERROR("mount_do_mount: failed to allocate mount structure");
         return ENOMEM;
+    }
 
     m->type = fst;
     m->source = strdup(source ? source : "");
     m->target = strdup(target);
+
+    KLOG_INFO("mount_do_mount: allocated mount %p type=%p source=%p target=%p", m, m->type, m->source, m->target);
+    KLOG_INFO("mount_do_mount: source='%s' target='%s'", m->source, m->target);
 
     if (!m->source || !m->target)
     {
@@ -72,7 +83,9 @@ int mount_do_mount(struct fs_type *fst, const char *source, const char *target, 
 
     if (fst->root_vnode)
     {
+        KLOG_INFO("mount_do_mount: calling root_vnode helper for mount %p", m);
         int r = fst->root_vnode(m, &m->root_vnode);
+        KLOG_INFO("mount_do_mount: root_vnode helper returned %d, m->root_vnode=%p", r, m->root_vnode);
         if (r != 0)
         {
             if (fst->fs_ops && fst->fs_ops->unmount)
@@ -86,9 +99,27 @@ int mount_do_mount(struct fs_type *fst, const char *source, const char *target, 
     }
 
     ListBefore(&g_mounts, &m->link);
+    KLOG_INFO("mount_do_mount: after ListBefore m=%p root_vnode=%p g_mounts.next=%p",
+              m, m->root_vnode, g_mounts.next);
 
-    if (strcmp(target, "/") == 0 && !vfs_get_root())
-        vfs_set_root(m->root_vnode);
+    if (target && target[0] == '/' && target[1] == '\0')
+    {
+        KLOG_INFO("mount_do_mount: target is root path, addr=%p", target);
+        if (!vfs_get_root())
+        {
+            if (!vfs_get_root())
+            {
+                KLOG_INFO("mount_do_mount: before vfs_set_root root_vnode=%p", m->root_vnode);
+                vfs_set_root(m->root_vnode);
+                KLOG_INFO("mount_do_mount: after vfs_set_root root_vnode=%p g_root_vnode=%p", m->root_vnode, vfs_get_root());
+                KLOG_INFO("mount_do_mount: root vnode set to %p for mount %s", m->root_vnode, target);
+            }
+        }
+        else
+        {
+            KLOG_WARN("mount_do_mount: root already set, skipping vfs_set_root for %s", target);
+        }
+    }
 
     return EOK;
 }

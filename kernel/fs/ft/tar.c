@@ -107,33 +107,44 @@ void tar_extract(struct vnode *root, void *start, u32 size)
 {
     if (!root || !start || size == 0)
     {
-        klog_err("tar: invalid args");
         return;
     }
+
+    KLOG_INFO("tar_extract: start root=%p size=%u", root, size);
 
     u8 *ptr = (u8 *)start;
     u8 *end = ptr + size;
 
     while (ptr < end)
     {
+        if (ptr + 512 > end)
+        {
+            KLOG_ERROR("tar_extract: incomplete tar header at %p", ptr);
+            break;
+        }
+
         struct tar_header *hdr = (struct tar_header *)ptr;
 
         if (hdr->name[0] == '\0')
+        {
+            KLOG_INFO("tar_extract: reached end of archive at %p", ptr);
             break;
+        }
 
         char name[128];
         memcpy(name, hdr->name, 100);
         name[100] = '\0';
-
         normalize(name);
+
+        u32 fsize = oct2bin(hdr->size);
+        KLOG_INFO("tar_extract: entry name=%s type=%c size=%u ptr=%p", name,
+                  hdr->typeflag ? hdr->typeflag : '-', fsize, ptr);
 
         if (name[0] == '\0')
         {
             ptr += 512;
             continue;
         }
-
-        u32 fsize = oct2bin(hdr->size);
 
         char parent_path[128];
         char leaf[64];
@@ -144,7 +155,6 @@ void tar_extract(struct vnode *root, void *start, u32 size)
 
         if (!parent)
         {
-            klog_err("tar: mkdir failed for %s", name);
             return;
         }
 
@@ -155,29 +165,53 @@ void tar_extract(struct vnode *root, void *start, u32 size)
             if (parent->ops->lookup(parent, leaf, &node) != 0)
             {
                 parent->ops->create(parent, leaf, VNODE_TYPE_DIR, &node);
+                KLOG_INFO("tar_extract: created dir %s", name);
+            }
+            else
+            {
+                KLOG_INFO("tar_extract: dir exists %s", name);
             }
         }
         else
         {
-            if (parent->ops->create(parent, leaf, VNODE_TYPE_FILE, &node) != 0)
+            KLOG_INFO("tar_extract: creating file %s", name);
+            KLOG_INFO("tar_extract: parent=%p ops=%p", parent, parent ? parent->ops : NULL);
+            int create_result = parent->ops->create(parent, leaf, VNODE_TYPE_FILE, &node);
+            KLOG_INFO("tar_extract: create returned %d for %s", create_result, name);
+            if (create_result != 0)
             {
-                klog_warn("tar: create failed %s", name);
+                KLOG_ERROR("tar_extract: failed to create file %s", name);
             }
             else
             {
+                KLOG_INFO("tar_extract: created file %s", name);
+                KLOG_INFO("tar_extract: opening vnode for %s", name);
                 struct file *f = vfs_open_vnode(node);
                 if (f)
                 {
+                    KLOG_INFO("tar_extract: writing %u bytes to %s", fsize, name);
                     usize written;
-                    vfs_write(f, ptr + 512, fsize, &written);
+                    int wr = vfs_write(f, ptr + 512, fsize, &written);
+                    if (wr != 0)
+                    {
+                        KLOG_ERROR("tar_extract: vfs_write failed %d for %s", wr, name);
+                    }
+                    else
+                    {
+                        KLOG_INFO("tar_extract: wrote %u bytes to %s", written, name);
+                    }
                     vfs_close(f);
+                }
+                else
+                {
+                    KLOG_ERROR("tar_extract: failed to open vnode for %s", name);
                 }
             }
         }
 
         u32 total = ((fsize + 511) / 512) * 512;
         ptr += 512 + total;
+        KLOG_INFO("tar_extract: next ptr=%p", ptr);
     }
 
-    klog_info("tar: extraction complete");
 }

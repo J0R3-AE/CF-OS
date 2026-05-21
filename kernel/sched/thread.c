@@ -3,7 +3,7 @@
 #include "libk/mem.h"
 #include "arch/context.h"
 #include "mm/heap.h"
-
+#include "libk/log.h"
 static Thread *sleep_queue = NULL;
 volatile u32 g_ticks = 0;
 
@@ -25,6 +25,23 @@ Thread *thread_create(void (*entry)(void *), void *arg,
 
     void *stack_top = stack_mem + stack_size;
     t->ctx = context_create(entry, arg, stack_top);
+
+    KLOG_INFO("thread_create: entry=%p arg=%p stack_top=%p thread=%p",
+              entry, arg, stack_top, t);
+    if (t->ctx)
+        KLOG_INFO("thread_create: ctx=%p [0]=0x%x [1]=0x%x [2]=0x%x [3]=0x%x [4]=0x%x [5]=0x%x [6]=0x%x [7]=0x%x [8]=0x%x [9]=0x%x [10]=0x%x",
+                  t->ctx,
+                  ((u32 *)t->ctx)[0],
+                  ((u32 *)t->ctx)[1],
+                  ((u32 *)t->ctx)[2],
+                  ((u32 *)t->ctx)[3],
+                  ((u32 *)t->ctx)[4],
+                  ((u32 *)t->ctx)[5],
+                  ((u32 *)t->ctx)[6],
+                  ((u32 *)t->ctx)[7],
+                  ((u32 *)t->ctx)[8],
+                  ((u32 *)t->ctx)[9],
+                  ((u32 *)t->ctx)[10]);
 
     ListInit(&t->run_link);
     t->next_sleep = NULL;

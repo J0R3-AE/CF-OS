@@ -7,6 +7,7 @@
 #include "libk/types.h"
 
 #include "libk/log.h"
+#include "syscall.h"
 
 /* IDT entries array - 256 entries for all possible interrupts */
 static idt_entry_t idt_entries[256];
@@ -17,6 +18,9 @@ static isr_handler_t interrupt_handlers[256];
 
 /* External assembly function to load the IDT */
 extern void i386IDT_flush(u32);
+
+/* Syscall handler */
+extern void syscall_handler(registers_t *regs);
 
 /* External ISR handler declarations (defined in isr.S) */
 extern void isr0(void);
@@ -88,7 +92,6 @@ static void idt_set_gate(u8 num, u32 base, u16 selector, u8 flags)
     idt_entries[num].selector = selector;
     idt_entries[num].always0 = 0;
     idt_entries[num].flags = flags;
-    klog_log("IDT: Set gate %u base=%x selector=%x flags=%x", num, base, selector, flags);
 }
 
 /*
@@ -161,8 +164,14 @@ void idt_init(void)
     idt_set_gate(46, (u32)irq14, 0x08, 0x8E);
     idt_set_gate(47, (u32)(irq15), 0x08, 0x8E);
 
+    /* Userland syscall interrupt (ring 3) */
+    idt_set_gate(128, (u32)isr128, 0x08, 0xEE);
+
     /* Load the IDT */
     i386IDT_flush((u32)&idt_ptr);
+
+    /* Register syscall handler */
+    register_interrupt_handler(128, syscall_handler);
 
     // test_syscall_from_kernel();
 }
@@ -177,7 +186,6 @@ void idt_init(void)
 void register_interrupt_handler(u8 n, isr_handler_t handler)
 {
     interrupt_handlers[n] = handler;
-    klog_log("Registered handler for interrupt %u at %p", n, (void *)handler);
 }
 
 /*
@@ -191,7 +199,6 @@ void isr_handler(registers_t *regs)
     {
         interrupt_handlers[regs->int_no](regs);
     }
-    klog_warn("ISR: Interrupt %u occurred with no handler", regs->int_no);
 }
 
 /*
@@ -213,6 +220,5 @@ void irq_handler(registers_t *regs)
     }
     else
     {
-        klog_warn("IRQ: Interrupt %u occurred with no handler", regs->int_no);
     }
 }

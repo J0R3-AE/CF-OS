@@ -3,6 +3,7 @@
 #include "libk/string.h"
 #include "libk/types.h"
 #include "libk/mem.h"
+#include "libk/log.h"
 
 static int ramfs_mount_fn(struct mount *mp, const char *opts);
 static int ramfs_unmount_fn(struct mount *mp);
@@ -52,10 +53,22 @@ void ramfs_init(void)
 
 static struct ramfs_node *ramfs_new_node(const char *name, vnode_type_t type)
 {
+    KLOG_INFO("ramfs_new_node: allocating node for %s", name ? name : "<null>");
     struct ramfs_node *n = calloc(1, sizeof(*n));
     if (!n)
+    {
+        KLOG_ERROR("ramfs_new_node: calloc failed");
         return NULL;
+    }
+    KLOG_INFO("ramfs_new_node: calloc returned %p", n);
     n->name = strdup(name ? name : "");
+    if (!n->name)
+    {
+        KLOG_ERROR("ramfs_new_node: strdup failed for %s", name ? name : "<null>");
+        free(n);
+        return NULL;
+    }
+    KLOG_INFO("ramfs_new_node: name duplicated %s", n->name);
     n->type = type;
     return n;
 }
@@ -78,18 +91,24 @@ static struct vnode *ramfs_new_vnode(struct mount *mp, struct ramfs_node *rn)
 static int ramfs_mount_fn(struct mount *mp, const char *opts)
 {
     (void)opts;
+    KLOG_INFO("ramfs_mount_fn: mounting ramfs for mount %p", mp);
     struct ramfs_mount *rm = calloc(1, sizeof(*rm));
     if (!rm)
+    {
+        KLOG_ERROR("ramfs_mount_fn: calloc failed for ramfs_mount");
         return -1;
+    }
 
     rm->root = ramfs_new_node("", VNODE_TYPE_DIR);
     if (!rm->root)
     {
+        KLOG_ERROR("ramfs_mount_fn: failed to create root node");
         free(rm);
         return -1;
     }
 
     mp->fs_data = rm;
+    KLOG_INFO("ramfs_mount_fn: ramfs mounted with root node %p", rm->root);
     return 0;
 }
 
@@ -110,10 +129,21 @@ static int ramfs_root_vnode(struct mount *mp, struct vnode **out_root)
 {
     struct ramfs_mount *rm = (struct ramfs_mount *)mp->fs_data;
     if (!rm || !rm->root)
+    {
+        KLOG_ERROR("ramfs_root_vnode: invalid ramfs mount state mp=%p rm=%p", mp, rm);
         return -1;
+    }
     if (!rm->root_vnode_cache)
+    {
+        KLOG_INFO("ramfs_root_vnode: creating root vnode for mount %p", mp);
         rm->root_vnode_cache = ramfs_new_vnode(mp, rm->root);
-
+        if (!rm->root_vnode_cache)
+        {
+            KLOG_ERROR("ramfs_root_vnode: failed to allocate root vnode");
+            return -1;
+        }
+    }
+    KLOG_INFO("ramfs_root_vnode: returning root vnode %p", rm->root_vnode_cache);
     *out_root = rm->root_vnode_cache;
     return 0;
 }
@@ -124,6 +154,7 @@ static struct ramfs_node *ramfs_find_child(struct ramfs_node *dir, const char *n
 {
     for (struct ramfs_node *c = dir->children; c; c = c->sibling)
     {
+        KLOG_INFO("ramfs_find_child: comparing child node=%p name=%s with target=%s", c, c->name, name);
         if (strcmp(c->name, name) == 0)
             return c;
     }
@@ -133,46 +164,74 @@ static struct ramfs_node *ramfs_find_child(struct ramfs_node *dir, const char *n
 static int ramfs_lookup_vn(struct vnode *dir, const char *name, struct vnode **out)
 {
     if (!dir || dir->type != VNODE_TYPE_DIR)
+    {
+        KLOG_ERROR("ramfs_lookup_vn: invalid directory vnode %p for name '%s'", dir, name);
         return -1;
+    }
 
     struct ramfs_node *d = (struct ramfs_node *)dir->fs_data;
     struct ramfs_node *c = ramfs_find_child(d, name);
     if (!c)
+    {
+        KLOG_WARN("ramfs_lookup_vn: name '%s' not found in directory vnode %p", name, dir);
         return -1;
+    }
 
+    KLOG_INFO("ramfs_lookup_vn: found child node %p for name '%s'", c, name);
     *out = (struct vnode *)c->vnode_cache;
     if (*out)
+    {
+        KLOG_INFO("ramfs_lookup_vn: returning cached vnode %p for child %s", *out, name);
         return 0;
+    }
 
+    KLOG_INFO("ramfs_lookup_vn: creating vnode for child %s", name);
     *out = ramfs_new_vnode(dir->mount, c);
     c->vnode_cache = *out;
-    return (*out ? 0 : -1);
+    if (!*out)
+    {
+        KLOG_ERROR("ramfs_lookup_vn: failed to allocate vnode for child %s", name);
+        return -1;
+    }
+    return 0;
 }
 
 static int ramfs_create_vn(struct vnode *dir, const char *name, vnode_type_t type,
                            struct vnode **out)
 {
+    KLOG_INFO("ramfs_create_vn: creating %s in dir %p", name ? name : "<null>", dir);
     if (!dir || dir->type != VNODE_TYPE_DIR)
         return -1;
 
     struct ramfs_node *d = (struct ramfs_node *)dir->fs_data;
     if (ramfs_find_child(d, name))
+    {
+        KLOG_INFO("ramfs_create_vn: child %s already exists", name);
         return -1;
+    }
 
     struct ramfs_node *n = ramfs_new_node(name, type);
     if (!n)
+    {
+        KLOG_ERROR("ramfs_create_vn: ramfs_new_node failed for %s", name);
         return -1;
+    }
 
+    KLOG_INFO("ramfs_create_vn: new node %p created", n);
     n->parent = d;
     n->sibling = d->children;
     d->children = n;
 
     *out = (struct vnode *)n->vnode_cache;
     if (*out)
+    {
+        KLOG_INFO("ramfs_create_vn: vnode cache hit for %s", name);
         return 0;
+    }
 
     *out = ramfs_new_vnode(dir->mount, n);
     n->vnode_cache = *out;
+    KLOG_INFO("ramfs_create_vn: vnode %p created for node %p", *out, n);
     return (*out ? 0 : -1);
 }
 
@@ -215,6 +274,7 @@ static int ramfs_ensure_capacity(struct ramfs_node *n, usize new_cap)
 static int ramfs_read_vn(struct vnode *vn, void *buf, usize off, usize len, usize *out)
 {
     struct ramfs_node *n = (struct ramfs_node *)vn->fs_data;
+    KLOG_INFO("ramfs_read_vn: vnode=%p node=%p off=%u len=%u size=%u capacity=%u type=%d data=%p", vn, n, off, len, n->size, n->capacity, n->type, n->data);
     if (n->type == VNODE_TYPE_DEV && n->dev_read)
     {
         usize got = n->dev_read(buf, len);
@@ -243,6 +303,7 @@ static int ramfs_read_vn(struct vnode *vn, void *buf, usize off, usize len, usiz
 static int ramfs_write_vn(struct vnode *vn, const void *buf, usize off, usize len, usize *out)
 {
     struct ramfs_node *n = (struct ramfs_node *)vn->fs_data;
+    KLOG_INFO("ramfs_write_vn: vnode=%p node=%p off=%u len=%u size=%u capacity=%u type=%d data=%p", vn, n, off, len, n->size, n->capacity, n->type, n->data);
     if (n->type != VNODE_TYPE_FILE)
         return -1;
 
@@ -257,6 +318,7 @@ static int ramfs_write_vn(struct vnode *vn, const void *buf, usize off, usize le
     if (end > n->size)
         n->size = end;
 
+    KLOG_INFO("ramfs_write_vn: wrote %u bytes vnode=%p node=%p new_size=%u capacity=%u", len, vn, n, n->size, n->capacity);
     if (out)
         *out = len;
     return 0;

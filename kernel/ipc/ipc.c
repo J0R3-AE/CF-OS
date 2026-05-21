@@ -78,8 +78,6 @@ void ipc_init(void)
     g_next_port_id = 1;
     g_next_msg_id = 1;
     g_ipc_ready = 1;
-
-    klog_log("ipc: initialized");
 }
 
 ipc_port_t *ipc_port_create(void)
@@ -187,7 +185,6 @@ int ipc_register_service(const char *name, ipc_port_t *port)
 
     ListBefore(&g_service_registry, &svc->link);
 
-    klog_log("ipc: registered service '%s' (port=%u)", svc->name, port->id);
     return IPC_OK;
 }
 

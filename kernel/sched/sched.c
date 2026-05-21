@@ -1,6 +1,7 @@
 #include "sched/sched.h"
 
 #include "libk/mem.h"
+#include "libk/log.h"
 #include "mm/heap.h"
 
 Thread *g_current = NULL;
@@ -38,12 +39,14 @@ void sched_add(Thread *t)
         return;
 
     t->state = THREAD_RUNNABLE;
+    KLOG_INFO("sched_add: thread=%p state=%d", t, t->state);
     runqueue_add(t);
 }
 
 void sched_start(void)
 {
     Thread *next = runqueue_next(NULL);
+    KLOG_INFO("sched_start: selected next=%p state=%d", next, next ? next->state : -1);
     if (!next)
         return;
 

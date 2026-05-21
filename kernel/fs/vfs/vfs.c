@@ -42,8 +42,6 @@ int vfs_register_fs(struct fs_type *fst)
     LinkInit(&fst->link);
     LinkBefore(&g_fs_types, &fst->link);
 
-    klog_log("vfs: Registered filesystem '%s'", fst->name);
-
     return EOK;
 }
 
@@ -66,12 +64,14 @@ static struct fs_type *find_fs_type(const char *name)
 
 int vfs_set_root(struct vnode *root)
 {
+    KLOG_INFO("vfs_set_root: old_root=%p new_root=%p", g_root_vnode, root);
     g_root_vnode = root;
     return EOK;
 }
 
 struct vnode *vfs_get_root(void)
 {
+    KLOG_INFO("vfs_get_root: returning %p", g_root_vnode);
     return g_root_vnode;
 }
 
@@ -84,15 +84,17 @@ int vfs_lookup(const char *path, struct vnode **out)
     if (!path || !out)
         return EINVAL;
 
-    klog_log("vfs_lookup: %s", path);
-
     if (path[0] != '/')
         return ENOENT;
 
     struct vnode *cur = g_root_vnode;
     if (!cur)
+    {
+        KLOG_ERROR("vfs_lookup: root vnode is NULL for path %s", path);
         return ENOENT;
+    }
 
+    KLOG_INFO("vfs_lookup: resolving path %s from root %p", path, cur);
     const char *p = path + 1;
     char name[64];
 
@@ -115,13 +117,21 @@ int vfs_lookup(const char *path, struct vnode **out)
         }
 
         if (!cur->ops || !cur->ops->lookup)
+        {
+            KLOG_ERROR("vfs_lookup: vnode %p has no lookup op while resolving %s", cur, name);
             return ENOENT;
+        }
 
+        KLOG_INFO("vfs_lookup: lookup %s in vnode %p", name, cur);
         struct vnode *next = NULL;
         int r = cur->ops->lookup(cur, name, &next);
         if (r != 0)
+        {
+            KLOG_WARN("vfs_lookup: lookup %s in vnode %p failed with %d", name, cur, r);
             return r;
+        }
 
+        KLOG_INFO("vfs_lookup: resolved %s to vnode %p", name, next);
         cur = next;
 
         if (p[len] == '/')
@@ -219,7 +229,6 @@ int vfs_open(const char *path, u32 flags, struct file **out)
     if (!path || !out)
         return EINVAL;
 
-    klog_log("vfs_open: %s flags=%x", path, flags);
 
     struct vnode *vn = NULL;
     int r = vfs_lookup(path, &vn);
@@ -265,7 +274,6 @@ int vfs_open(const char *path, u32 flags, struct file **out)
     f->ops = &vfs_generic_file_ops;
 
     *out = f;
-    klog_log("vfs_open: opened file %s (vn=%p)", path, (void *)vn);
     return EOK;
 }
 
@@ -313,7 +321,6 @@ static int vfs_generic_read(struct file *f, void *buf, usize len, usize *out)
     if (out)
         *out = done;
 
-    klog_log("vfs_generic_read: file=%p buf=%p len=%zu done=%zu", (void *)f, buf, len, done);
     return r;
 }
 
@@ -331,7 +338,6 @@ static int vfs_generic_write(struct file *f, const void *buf, usize len, usize *
     if (out)
         *out = done;
 
-    klog_log("vfs_generic_write: file=%p buf=%p len=%zu done=%zu", (void *)f, buf, len, done);
     return r;
 }
 
@@ -341,7 +347,6 @@ static int vfs_generic_seek(struct file *f, usize off)
         return EINVAL;
 
     f->offset = off;
-    klog_log("vfs_seek: file=%p new_offset=%zu", (void *)f, off);
     return EOK;
 }
 
@@ -359,7 +364,6 @@ int vfs_read(struct file *f, void *buf, usize len, usize *out)
     if (!f || !f->ops || !f->ops->read)
         return EINVAL;
 
-    klog_log("vfs_read: file=%p buf=%p len=%zu", (void *)f, buf, len);
     return f->ops->read(f, buf, len, out);
 }
 
@@ -368,7 +372,6 @@ int vfs_write(struct file *f, const void *buf, usize len, usize *out)
     if (!f || !f->ops || !f->ops->write)
         return EINVAL;
 
-    klog_log("vfs_write: file=%p buf=%p len=%zu", (void *)f, buf, len);
     return f->ops->write(f, buf, len, out);
 }
 
@@ -398,8 +401,6 @@ int vfs_create_exec(const char *path, exec_fn_t fn)
 {
     if (!path)
         return EINVAL;
-
-    klog_log("vfs_create_exec: %s", path);
 
     struct vnode *parent = NULL;
     const char *name = NULL;

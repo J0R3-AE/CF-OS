@@ -52,7 +52,8 @@ void free(void *ptr);
 /**
  * @brief Allocate memory with a specific alignment.
  *
- * @warning Not implemented yet.
+ * Allocates a larger block and returns an aligned pointer while preserving the
+ * original allocation address for proper freeing via free_align semantics.
  *
  * @param size  Number of bytes to allocate.
  * @param align Alignment requirement (must be a power of two).
