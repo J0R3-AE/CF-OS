@@ -15,6 +15,8 @@ typedef enum {
 } log_level_t;
 
 void log_set_level(log_level_t lvl);
+void log_set_hide_info(u8 hide);
+void log_set_hide_all(u8 hide);
 
 void log_write(log_level_t lvl, const char *fmt, ...);
 void log_vwrite(log_level_t lvl, const char *fmt, va_list ap);

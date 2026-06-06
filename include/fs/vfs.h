@@ -172,6 +172,8 @@ int vfs_read(struct file *f, void *buf, usize len, usize *out);
  */
 int vfs_write(struct file *f, const void *buf, usize len, usize *out);
 
+int vfs_readdir(struct vnode *vn, usize index, const char **name_out, vnode_type_t *type_out);
+
 /* -------------------------------------------------------------------------- */
 /*  Path Resolution                                                           */
 /* -------------------------------------------------------------------------- */

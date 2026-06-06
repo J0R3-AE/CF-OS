@@ -8,10 +8,10 @@ QEMU	:= qemu-system-i386
 
 # === Flags ===
 CFLAGS  := -m32 -ffreestanding -fno-builtin -O2 -Wall -Wextra
-CFLAGS  += -Iinclude -Ikernel
+CFLAGS  += -Iinclude -Isrc/kernel
 
 ASFLAGS := -f elf32
-LDFLAGS := -m elf_i386 -T kernel/linker.ld
+LDFLAGS := -m elf_i386 -T src/kernel/linker.ld
 
 # === Directories ===
 SRC	 := .
@@ -20,19 +20,19 @@ ISO	 := $(BUILD)/iso
 KERNEL  := $(BUILD)/kernel.elf
 
 # === C Sources ===
-C_SRC := $(shell find kernel -name '*.c')
+C_SRC := $(shell find src/kernel -name '*.c')
 
 # === ASM Sources ===
-ASM_SRC := $(shell find kernel -name '*.asm')
+ASM_SRC := $(shell find src/kernel -name '*.asm')
 
-USER_ELF := user/build/init.elf
+USER_ELF := src/user/build/init.elf
 
 # === Object Files ===
 OBJ := $(patsubst %.asm,$(BUILD)/%.o,$(ASM_SRC)) \
 	   $(patsubst %.c,$(BUILD)/%.o,$(C_SRC))
 
 # === Phony Targets ===
-.PHONY: all clean run iso user
+.PHONY: all clean run iso user install-disk-fat32 install-disk-ext2 disk-image
 
 # === Default ===
 all:  kernel.iso
@@ -55,13 +55,13 @@ $(KERNEL): user $(OBJ)
 
 # === User build target ===
 user:
-	$(MAKE) -C user BUILD=build
+	$(MAKE) -C src/user BUILD=build
 
-$(BUILD)/kernel/user/init_elf.o: kernel/user/init_elf.asm | user
+$(BUILD)/kernel/user/init_elf.o: src/kernel/user/init_elf.asm | user
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
-$(BUILD)/kernel/user/init_tar.o: kernel/user/init_tar.asm user/build/init.tar | user
+$(BUILD)/kernel/user/init_tar.o: src/kernel/user/init_tar.asm src/user/build/init.tar | user
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
@@ -69,18 +69,35 @@ $(BUILD)/kernel/user/init_tar.o: kernel/user/init_tar.asm user/build/init.tar | 
 kernel.iso: $(KERNEL) user
 	@mkdir -p $(ISO)/boot/grub
 	cp $(KERNEL) $(ISO)/boot/kernel.elf
-	cp boot/grub/grub.cfg $(ISO)/boot/grub/grub.cfg
+	cp etc/grub.cfg $(ISO)/boot/grub/grub.cfg
 	$(GRUB) -o $(BUILD)/minios.iso $(ISO)
 
 # === Run in QEMU ===
 run: kernel.iso
-	$(QEMU) -cdrom $(BUILD)/minios.iso -serial stdio -hda disk.img -D qemu.log -d int
+	$(QEMU) -hda $(BUILD)/minios.iso -serial stdio -D qemu.log -d int
 
 run-elf:
 	$(QEMU) -kernel $(BUILD)/kernel.elf -serial stdio
+
+# === Disk Image and Installation Targets ===
+
+disk-image:
+	@mkdir -p $(BUILD)
+	@python3 scripts/disk_install.py --create-disk disk.img --size-mb 64
+	@echo "Disk image created: disk.img"
+
+install-disk-fat32: kernel.iso disk-image
+	@echo "Preparing bootable FAT32 disk..."
+	@python3 scripts/disk_install.py --prepare-fat32 disk.img --kernel $(KERNEL)
+	@echo "To complete installation, boot the ISO and run installer from within OS"
+
+install-disk-ext2: kernel.iso disk-image
+	@echo "Preparing bootable EXT2 disk..."
+	@python3 scripts/disk_install.py --prepare-ext2 disk.img --kernel $(KERNEL)
+	@echo "To complete installation, boot the ISO and run installer from within OS"
 
 # === Clean ===
 clean:
 	rm -rf $(BUILD)
 	rm -f qemu.log
-	$(MAKE) -C user clean
+	$(MAKE) -C src/user clean

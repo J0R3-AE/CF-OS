@@ -3,6 +3,7 @@
 #include "libk/types.h"
 #include "libk/link.h"
 #include "arch/context.h"
+#include "libk/log.h"
 
 struct process;
 
