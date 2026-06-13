@@ -46,8 +46,8 @@ void kmain(u32 magic, multiboot_info_t *mbi)
 
     KLOG_LOG("Welcome to MiniOS!");
 
-    log_set_hide_info(1);
-    log_set_hide_all(1);
+    log_set_hide_info(0);
+    log_set_hide_all(0);
 
     kernel_init();
 
