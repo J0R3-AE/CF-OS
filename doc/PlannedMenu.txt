@@ -1,0 +1,145 @@
+.
+
+🧱 Global Layout (applies to ALL screens)
+
+Every screen uses this frame:
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ MiniOS Setup                                   VT520 Mode  80x24     │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  [ CONTENT AREA ]                                                    │
+│                                                                      │
+│                                                                      │
+│                                                                      │
+├──────────────────────────────────────────────────────────────────────┤
+│ Status: <dynamic message>                                            │
+├──────────────────────────────────────────────────────────────────────┤
+│ F1 Help   F2 Back   F3 Select   F4 Edit   F5 Refresh   F10 Quit       │
+└──────────────────────────────────────────────────────────────────────┘
+Rules:
+Arrow keys = navigation
+Enter = select
+ESC / F2 = back
+F10 = exit setup
+Reverse video = selected item
+No mouse ever
+🖥️ SCREEN 1 — Main Menu
+│  ▸ Install / Configure                                               │
+│    Network                                                           │
+│    Storage                                                           │
+│    Users                                                             │
+│    System                                                            │
+│    Diagnostics                                                       │
+│    Shell                                                             │
+│    Reboot                                                            │
+Status:
+Status: Select an option and press Enter
+🧭 SCREEN 2 — Install / Configure (Archinstall-style hub)
+│  Installation Profile                                                │
+│                                                                      │
+│  ▸ Base System         [Not Installed]                               │
+│    Filesystem         [Not Configured]                              │
+│    Hostname           [minios]                                      │
+│    Root Password      [Not Set]                                     │
+│    Bootloader         [None]                                        │
+│                                                                      │
+│    Begin Installation                                               │
+Behavior:
+Each entry opens a sub-screen
+“Begin Installation” runs everything
+🌐 SCREEN 3 — Network Menu
+│  Network Interfaces                                                  │
+│                                                                      │
+│  ▸ lo        LOOPBACK      UP                                        │
+│    eth0      E1000         DOWN                                      │
+│                                                                      │
+│  Actions                                                             │
+│    Configure Interface                                               │
+│    Bring Up                                                          │
+│    Bring Down                                                        │
+│    View Packets                                                      │
+🌐 SCREEN 3A — Configure Interface
+│  Configure: eth0                                                     │
+│                                                                      │
+│  ▸ Mode           [DHCP]                                             │
+│    IP Address     [192.168.1.10]                                     │
+│    Netmask        [255.255.255.0]                                    │
+│    Gateway        [192.168.1.1]                                      │
+│                                                                      │
+│    Apply                                                           │
+💾 SCREEN 4 — Storage Menu
+│  Storage Devices                                                     │
+│                                                                      │
+│  ▸ ramfs           Mounted at /                                     │
+│    ext2 (disk0)    Not Mounted                                      │
+│                                                                      │
+│  Actions                                                             │
+│    Mount Filesystem                                                  │
+│    Format Device                                                     │
+│    View Tree                                                         │
+💾 SCREEN 4A — Mount Filesystem
+│  Mount Filesystem                                                    │
+│                                                                      │
+│  ▸ Filesystem Type   [ramfs]                                         │
+│    Source            [none]                                          │
+│    Target            [/]                                             │
+│                                                                      │
+│    Mount                                                          │
+👤 SCREEN 5 — Users
+│  User Management                                                     │
+│                                                                      │
+│  ▸ root                                                             │
+│                                                                      │
+│  Actions                                                             │
+│    Add User                                                          │
+│    Set Password                                                      │
+│    Remove User                                                       │
+⚙️ SCREEN 6 — System Settings
+│  System Configuration                                                │
+│                                                                      │
+│  ▸ Hostname        [minios]                                          │
+│    Timezone        [UTC]                                             │
+│    Logging         [Enabled]                                         │
+│                                                                      │
+│    Apply Changes                                                     │
+🧪 SCREEN 7 — Diagnostics
+│  System Diagnostics                                                  │
+│                                                                      │
+│  ▸ Memory Info                                                       │
+│    IRQ Status                                                        │
+│    IPC Messages                                                      │
+│    Network Stats                                                     │
+│    Filesystem Tree                                                   │
+🧪 SCREEN 7A — Example: IRQ Status
+│  IRQ Status                                                          │
+│                                                                      │
+│  IRQ 0   PIT        Active                                           │
+│  IRQ 1   Keyboard   Active                                           │
+│  IRQ 32  Timer      Active                                           │
+│                                                                      │
+│  Unhandled: 0                                                        │
+📡 SCREEN 7B — IPC Monitor
+│  IPC Monitor                                                         │
+│                                                                      │
+│  ▸ console        pending: 2                                         │
+│    net            pending: 0                                         │
+│    fs             pending: 1                                         │
+│                                                                      │
+│    View Messages                                                     │
+🐚 SCREEN 8 — Kernel Shell
+│  MiniOS Shell                                                        │
+│                                                                      │
+│  > help                                                              │
+│  ipc list                                                            │
+│  net list                                                            │
+│                                                                      │
+⚠️ SCREEN 9 — Dialog (VT-style modal)
+┌───────────────────────────────┐
+│ Confirm Action                │
+├───────────────────────────────┤
+│ Are you sure you want to      │
+│ reboot the system?            │
+│                               │
+│     [ Yes ]     [ No ]        │
+└───────────────────────────────┘
