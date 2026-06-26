@@ -12,13 +12,15 @@ dd MULTIBOOT_FLAGS
 dd MULTIBOOT_CHECKSUM
 
 ; Optional address fields (we'll leave them 0 for now)
-dd 0                  ; header_addr
-dd 0                  ; load_addr
-dd 0                  ; load_end_addr
-dd 0                  ; bss_end_addr
-dd 0                  ; entry_addr
+    ; framebuffer tag
+    dw 5                        ; tag type: framebuffer
+    dw 0                        ; flags
+    dd 20                       ; size
+    dd 1024                     ; width
+    dd 768                      ; height
+    dd 32                       ; bpp
 
-; Video mode request
-dd 0
-dd 0
-dd 0
+    ; end tag
+    dw 0
+    dw 0
+    dd 8

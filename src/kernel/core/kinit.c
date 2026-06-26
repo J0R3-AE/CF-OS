@@ -23,8 +23,9 @@
 #include "drivers/tty.h"
 #include "drivers/kbd.h"
 #include "drivers/ata.h"
-#include "drivers/fbcon.h"
+#include "drivers/framebuffer.h"
 #include "drivers/keyboard.h"
+#include "drivers/serial.h"
 
 #include "fs/vfs.h"
 #include "fs/ramfs.h"
@@ -97,6 +98,9 @@ void kernel_init(void)
     paging_init();
     KLOG_LOG("Paging initialized");
 
+    serial_init(COM1);
+    KLOG_LOG("Serial port initialized on COM1");
+
     io_enableinterrupts();
     KLOG_LOG("Interrupts enabled");
 
@@ -123,16 +127,6 @@ void kernel_init(void)
 
     sched_init();
     KLOG_LOG("Scheduler initialized");
-
-    /* Start a serial->kbd bridge so QEMU's `-serial stdio` provides keyboard
-     * input to the kernel's existing keyboard-based stdin path. */
-    u8 *ser_stack = malloc(4096);
-    if (ser_stack)
-    {
-        Thread *ser_t = thread_create(serial_input_thread, NULL, ser_stack, 4096);
-        if (ser_t)
-            sched_add(ser_t);
-    }
 
     /* Try to mount disk root first (installed OS) */
     int disk_mounted = 0;

@@ -1,6 +1,7 @@
 #include "libk/log.h"
 #include "arch/io.h"
 #include "drivers/tty.h"
+#include "drivers/serial.h"
 #include "libk/printf.h"
 
 #include <stdarg.h>
@@ -35,21 +36,6 @@ static const char *level_tag(log_level_t lvl)
     }
 }
 
-static void level_color(log_level_t lvl, u8 *fg, u8 *bg)
-{
-    switch (lvl)
-    {
-    case LOG_DEBUG: *fg = TTY_COLOR_LIGHT_CYAN;  *bg = TTY_COLOR_BLACK;      break;
-    case LOG_INFO:  *fg = TTY_COLOR_LIGHT_CYAN;  *bg = TTY_COLOR_BLACK;      break;
-    case LOG_WARN:  *fg = TTY_COLOR_YELLOW;      *bg = TTY_COLOR_BLACK;      break;
-    case LOG_ERROR: *fg = TTY_COLOR_LIGHT_RED;   *bg = TTY_COLOR_BLACK;      break;
-    case LOG_FATAL: *fg = TTY_COLOR_WHITE;       *bg = TTY_COLOR_LIGHT_RED;  break;
-    case LOG_LOG:   *fg = TTY_COLOR_WHITE;       *bg = TTY_COLOR_BLACK;      break;
-    case LOG_OKAY:  *fg = TTY_COLOR_LIGHT_GREEN; *bg = TTY_COLOR_BLACK;      break;
-    default:        *fg = TTY_COLOR_WHITE;       *bg = TTY_COLOR_BLACK;      break;
-    }
-}
-
 void log_set_level(log_level_t lvl)
 {
     current_level = lvl;
@@ -77,15 +63,12 @@ void log_vwrite_ex(log_level_t lvl, const char *file, int line, const char *fmt,
     else
         snprintf(final, sizeof(final), "[%s] %s", level_tag(lvl), msg);
 
-    i386SERIAL_writestr(final);
-    i386SERIAL_writestr("\n");
+    serial_write(final);
+    serial_write("\n");
 
     u8 fg, bg;
-    level_color(lvl, &fg, &bg);
-    TTY_setcolor(fg, bg);
     TTY_puts(final);
     TTY_putc('\n');
-    TTY_setcolor(TTY_COLOR_WHITE, TTY_COLOR_BLACK);
 
     if (lvl == LOG_FATAL)
     {

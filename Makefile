@@ -1,5 +1,6 @@
 # === Tools ===
 CC	  := i686-elf-gcc
+CXX	  := i686-elf-g++
 AS	  := nasm
 LD	  := i686-elf-ld
 OBJCOPY := i686-elf-objcopy
@@ -7,97 +8,123 @@ GRUB	:= grub-mkrescue
 QEMU	:= qemu-system-i386
 
 # === Flags ===
-CFLAGS  := -m32 -ffreestanding -fno-builtin -O2 -Wall -Wextra
-CFLAGS  += -Iinclude -Isrc/kernel
+CFLAGS  := -m32 -ffreestanding -fno-builtin -O2 -Wall -Wextra -Iinclude -Isrc/kernel -Isrc/libc -Isrc/user
 
 ASFLAGS := -f elf32
 LDFLAGS := -m elf_i386 -T src/kernel/linker.ld
 
 # === Directories ===
 SRC	 := .
+GRUB_DIR := boot/grub
 BUILD   := build
+LIBC_BUILD := $(BUILD)/libc
+KERNEL_BUILD := $(BUILD)/kernel
+USER_BUILD := $(BUILD)/user
+
 ISO	 := $(BUILD)/iso
 KERNEL  := $(BUILD)/kernel.elf
 
-# === C Sources ===
-C_SRC := $(shell find src/kernel -name '*.c')
+# === Libc C & ASM Sources ===
+LIBC_C_SRC := $(shell find src/libc -name '*.c')
+LIBC_ASM_SRC := $(shell find src/libc -name '*.asm')
 
-# === ASM Sources ===
-ASM_SRC := $(shell find src/kernel -name '*.asm')
+# === Kernel C & ASM Sources ===
+KERNEL_C_SRC := $(shell find src/kernel -name '*.c')
+KERNEL_ASM_SRC := $(shell find src/kernel -name '*.asm')
 
-USER_ELF := src/user/build/init.elf
+# === User C, C++, and ASM Sources ===
+USER_C_SRC := $(shell find src/user -name '*.c')
+USER_CPP_SRC := $(shell find src/user -name '*.cpp')
+USER_ASM_SRC := $(shell find src/user -name '*.asm')
+
+USER_ELF := $(BUILD)/init.elf
+USER_TAR := $(BUILD)/init.tar
 
 # === Object Files ===
-OBJ := $(patsubst %.asm,$(BUILD)/%.o,$(ASM_SRC)) \
-	   $(patsubst %.c,$(BUILD)/%.o,$(C_SRC))
+LIBC_OBJ := \
+	$(patsubst src/libc/%.asm,$(LIBC_BUILD)/%.o,$(LIBC_ASM_SRC)) \
+	$(patsubst src/libc/%.c,$(LIBC_BUILD)/%.o,$(LIBC_C_SRC))
 
-# === Phony Targets ===
-.PHONY: all clean run iso user install-disk-fat32 install-disk-ext2 disk-image
+ULIBC_OBJ := \
+    build/libc/asm/math.o \
+    build/libc/asm/mem.o \
+    build/libc/asm/syscall.o \
+	build/libc/syscall.o \
+
+# Strip src/kernel/ prefix
+KERNEL_OBJ := \
+	$(patsubst src/kernel/%.asm,$(KERNEL_BUILD)/%.o,$(KERNEL_ASM_SRC)) \
+	$(patsubst src/kernel/%.c,$(KERNEL_BUILD)/%.o,$(KERNEL_C_SRC))
+
+# Strip src/user/ prefix
+USER_OBJS := \
+	$(patsubst src/user/%.c,$(USER_BUILD)/%.o,$(USER_C_SRC)) \
+	$(patsubst src/user/%.cpp,$(USER_BUILD)/%.o,$(USER_CPP_SRC)) \
+	$(patsubst src/user/%.asm,$(USER_BUILD)/%.o,$(USER_ASM_SRC))
 
 # === Default ===
-all:  kernel.iso
+all: kernel.iso
 
-# === Compile ASM ===
-$(BUILD)/%.o: %.asm
-	@mkdir -p $(dir $@)
-	$(AS) $(ASFLAGS) $< -o $@
 
-# === Compile C ===
-$(BUILD)/%.o: %.c
+# === Libc ===
+$(LIBC_BUILD)/%.o: src/libc/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# === Link Kernel ===
-# Ensure user build runs first (produces user/build/init.elf)
-$(KERNEL): user $(OBJ)
+$(LIBC_BUILD)%.o: src/libc/%.asm
 	@mkdir -p $(dir $@)
-	$(LD) $(LDFLAGS) $(OBJ) -o $(KERNEL)
+	$(AS) $(ASFLAGS) $< -o $@
+	
+# === Kernel ===
+$(KERNEL_BUILD)/%.o: src/kernel/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
 
-# === User build target ===
-user:
-	$(MAKE) -C src/user BUILD=build
-
-$(BUILD)/kernel/user/init_elf.o: src/kernel/user/init_elf.asm | user
+$(KERNEL_BUILD)/%.o: src/kernel/%.asm
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
-$(BUILD)/kernel/user/init_tar.o: src/kernel/user/init_tar.asm src/user/build/init.tar | user
+$(KERNEL): $(LIBC_OBJ) $(USER_ELF) $(USER_TAR) $(KERNEL_OBJ)
+	@mkdir -p $(dir $@)
+	$(LD) $(LDFLAGS) $(KERNEL_OBJ) $(LIBC_OBJ) -o $@
+	@echo "Built kernel ELF: $@"
+
+# === User ===
+$(USER_BUILD)/%.o: src/user/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(USER_BUILD)/%.o: src/user/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(USER_BUILD)/%.o: src/user/%.asm
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
-# === Build ISO ===
-kernel.iso: $(KERNEL) user
+$(USER_ELF): $(USER_OBJS) src/user/linker.ld
+	@mkdir -p $(dir $@)
+	$(LD) -m elf_i386 -T src/user/linker.ld $(USER_OBJS) $(ULIBC_OBJ) -o $@
+	@echo "Built user ELF: $@"
+
+$(USER_TAR): $(USER_ELF)
+	@cp $(USER_ELF) $(BUILD)/init
+	@tar -C $(BUILD) -cf $@ init
+	@rm -f $(BUILD)/init
+	@echo "Built user TAR: $@"
+
+# === ISO Image ===
+kernel.iso: $(KERNEL) $(USER_TAR)
 	@mkdir -p $(ISO)/boot/grub
-	cp $(KERNEL) $(ISO)/boot/kernel.elf
-	cp etc/grub.cfg $(ISO)/boot/grub/grub.cfg
-	$(GRUB) -o $(BUILD)/minios.iso $(ISO)
+	@cp $(KERNEL) $(ISO)/boot/kernel.elf
+	@cp $(USER_TAR) $(ISO)/boot/init.tar
+	@cp $(GRUB_DIR)/grub.cfg $(ISO)/boot/grub/grub.cfg
+	$(GRUB) -o $@ $(ISO)
+	@echo "Built ISO image: $@"
 
-# === Run in QEMU ===
 run: kernel.iso
-	$(QEMU) -hda $(BUILD)/minios.iso -serial stdio -D qemu.log -d int
+	$(QEMU) -cdrom $< -m 512M -serial stdio
 
-run-elf:
-	$(QEMU) -kernel $(BUILD)/kernel.elf -serial stdio
-
-# === Disk Image and Installation Targets ===
-
-disk-image:
-	@mkdir -p $(BUILD)
-	@python3 scripts/disk_install.py --create-disk disk.img --size-mb 64
-	@echo "Disk image created: disk.img"
-
-install-disk-fat32: kernel.iso disk-image
-	@echo "Preparing bootable FAT32 disk..."
-	@python3 scripts/disk_install.py --prepare-fat32 disk.img --kernel $(KERNEL)
-	@echo "To complete installation, boot the ISO and run installer from within OS"
-
-install-disk-ext2: kernel.iso disk-image
-	@echo "Preparing bootable EXT2 disk..."
-	@python3 scripts/disk_install.py --prepare-ext2 disk.img --kernel $(KERNEL)
-	@echo "To complete installation, boot the ISO and run installer from within OS"
-
-# === Clean ===
 clean:
 	rm -rf $(BUILD)
-	rm -f qemu.log
-	$(MAKE) -C src/user clean
+	rm -f qemu.log disk.img

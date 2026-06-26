@@ -63,11 +63,13 @@ struct vnode_ops
 {
     int (*lookup)(struct vnode *dir, const char *name, struct vnode **out);
     int (*create)(struct vnode *dir, const char *name, vnode_type_t type, struct vnode **out);
+    int (*link)(struct vnode *dir, const char *name, struct vnode *target);
     int (*unlink)(struct vnode *dir, const char *name);
 
     int (*read)(struct vnode *vn, void *buf, usize off, usize len, usize *out);
     int (*write)(struct vnode *vn, const void *buf, usize off, usize len, usize *out);
     int (*readdir)(struct vnode *vn, usize index, const char **name_out, vnode_type_t *type_out);
+    int (*writedir)(struct vnode *vn, const char *name, vnode_type_t type);
     int (*truncate)(struct vnode *vn, usize new_size);
     int (*getattr)(struct vnode *vn, void *stat_buf);
     int (*setattr)(struct vnode *vn, const void *stat_buf);

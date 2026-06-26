@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include "libk/log.h"
 
-void pic_init(void)
+void pic_remap(int offset1, int offset2)
 {
     uint8_t mask1 = io_Read8(PIC1_REG_IMR);
     uint8_t mask2 = io_Read8(PIC2_REG_IMR);
@@ -13,8 +13,8 @@ void pic_init(void)
     io_Write8(PIC_SLAVE_CMD, PIC_ICW1_INIT_YES | PIC_ICW1_IC4_EXPECT);
 
     /* Remap IRQs */
-    io_Write8(PIC_MASTER_DATA, 0x20); /* master offset = 32 */
-    io_Write8(PIC_SLAVE_DATA, 0x28);  /* slave offset  = 40 */
+    io_Write8(PIC_MASTER_DATA, offset1); /* master offset */
+    io_Write8(PIC_SLAVE_DATA, offset2);  /* slave offset */
 
     /* Tell Master PIC that there is a slave PIC at IRQ2 */
     io_Write8(PIC_MASTER_DATA, 0x04);
@@ -29,6 +29,11 @@ void pic_init(void)
     /* Restore masks */
     io_Write8(PIC1_REG_IMR, mask1);
     io_Write8(PIC2_REG_IMR, mask2);
+}
+
+void pic_init(void)
+{
+    pic_remap(0x20, 0x28); /* Remap PIC1 to 0x20-0x27 and PIC2 to 0x28-0x2F */
 }
 
 void pic_send_eoi(uint8_t irq)

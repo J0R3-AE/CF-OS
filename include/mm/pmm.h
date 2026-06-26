@@ -2,79 +2,70 @@
  * @file pmm.h
  * @brief Physical Memory Manager (PMM) — frame allocation and reservation.
  *
- * The PMM manages physical memory in fixed-size 4 KiB frames. It tracks which
- * frames are free, used, or reserved, and provides allocation primitives used
- * by the kernel and paging subsystem.
+ * Manages physical memory using 4 KiB frames with a bitmap allocator.
+ * Used by paging, heap, and kernel subsystems.
  */
 
 #ifndef PMM_H
 #define PMM_H
 
 #include "libk/types.h"
+#include "libk/errno.h"
+
+/* =========================
+ * Constants
+ * ========================= */
+
+#define PMM_FRAME_SIZE 0x1000u  /* 4 KiB frames */
+
+/* =========================
+ * API
+ * ========================= */
 
 /**
- * @def PMM_FRAME_SIZE
- * @brief Size of a physical frame (4 KiB).
+ * @brief Initialize PMM.
+ *
+ * Builds frame bitmap and reserves kernel + metadata regions.
+ *
+ * @param mem_size_bytes Total physical memory in bytes.
+ * @param kernel_end_paddr End of kernel in physical memory.
+ * @return Errno_t status code.
  */
-#define PMM_FRAME_SIZE 0x1000u
+Errno_t pmm_init(u32 mem_size_bytes, u32 kernel_end_paddr);
 
 /**
- * @brief Initialize the physical memory manager.
+ * @brief Allocate a physical frame.
  *
- * Sets up the PMM bitmap based on the total memory size and marks the kernel
- * region as used so it cannot be overwritten.
+ * @return Physical address of frame, or 0 on failure.
  *
- * @param mem_size_bytes   Total physical memory size in bytes.
- * @param kernel_end_paddr Physical end address of the kernel image.
- */
-void pmm_init(u32 mem_size_bytes, u32 kernel_end_paddr);
-
-/**
- * @brief Free a previously allocated physical frame.
- *
- * Marks the frame at @p paddr as free and available for allocation.
- *
- * @param paddr Physical address of the frame to free (must be 4 KiB aligned).
- */
-void pmm_free_frame(u32 paddr);
-
-/**
- * @brief Reserve a region of physical memory.
- *
- * Marks all frames in the range `[paddr_start, paddr_end)` as used.
- * Useful for ACPI tables, MMIO regions, bootloader structures, etc.
- *
- * @param paddr_start Start of the reserved region (inclusive).
- * @param paddr_end   End of the reserved region (exclusive).
- */
-void pmm_reserve_region(u32 paddr_start, u32 paddr_end);
-
-/**
- * @brief Allocate a single free physical frame.
- *
- * @return Physical address of the allocated frame, or 0 if none are available.
+ * NOTE:
+ * 0 is safe as an error value because physical frame 0 is reserved.
  */
 u32 pmm_alloc_frame(void);
 
 /**
- * @brief Get the total number of physical frames.
+ * @brief Free a physical frame.
  *
- * @return Total frame count based on memory size.
+ * @param paddr Frame address (must be 4 KiB aligned).
  */
+Errno_t pmm_free_frame(u32 paddr);
+
+/**
+ * @brief Reserve a physical memory region.
+ *
+ * Marks all frames in range [start, end) as used.
+ *
+ * @param paddr_start Start address (inclusive).
+ * @param paddr_end   End address (exclusive).
+ */
+Errno_t pmm_reserve_region(u32 paddr_start, u32 paddr_end);
+
+/* =========================
+ * Stats
+ * ========================= */
+
 u32 pmm_total_frames(void);
-
-/**
- * @brief Get the number of frames currently allocated.
- *
- * @return Number of frames marked as used.
- */
 u32 pmm_used_frames(void);
-
-/**
- * @brief Get the number of free frames available.
- *
- * @return Number of free frames.
- */
 u32 pmm_free_frames(void);
 
 #endif /* PMM_H */

@@ -8,11 +8,13 @@
 #include "drivers/tty.h"
 #include "drivers/kbd.h"
 #include "drivers/keyboard.h"
+#include "drivers/serial.h"
 #include "libk/log.h"
 #include "libk/errno.h"
 #include "libk/string.h"
 #include "libk/types.h"
 #include "../../libc/dirent.h"
+
 // Global to track file descriptor tables per process
 // TODO: move this to process_t structure
 static fd_table_t g_fd_tables[64];
@@ -119,12 +121,13 @@ void syscall_handler(registers_t *regs)
                     break;
                 }
 
+                
+
                 // Echo the character (TTY_putc handles all ASCII)
                 if (key != '\n') // Don't echo newline twice
-                    TTY_putc((char)key);
 
-                // Store in buffer
-                buf[nread++] = (char)key;
+                    // Store in buffer
+                    buf[nread++] = (char)key;
 
                 // Stop at newline for line buffering
                 if (key == '\n')

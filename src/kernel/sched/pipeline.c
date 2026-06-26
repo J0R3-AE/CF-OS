@@ -35,13 +35,11 @@ void ksched_yield(void)
 
     if (prev)
     {
-        KLOG_INFO("Switching from thread %p to thread %p", prev, next);
         context_switch(&prev->ctx, next->ctx);
     }
 
     else
     {
-        KLOG_INFO("Switching to thread %p", next);
         context_switch(NULL, next->ctx);
     }
 }
