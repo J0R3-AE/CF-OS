@@ -1,7 +1,7 @@
 # Aesc
 
 AescOS is a small hobby operating system written in C and assembly for x86. It is currently in an early but functional stage with basic kernel services, a working interrupt system, keyboard input, terminal output, a simple VFS layer, and syscall interface.
-![OS Screenshot](docs/images/Example.png)
+![OS Screenshot](doc/images/Example.png)
 
 ## Current Features
 
