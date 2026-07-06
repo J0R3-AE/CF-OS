@@ -7,10 +7,10 @@
 static void dial_tick(int i)
 {
     static const char frames[4] = {'|', '/', '-', '\\'};
+    char buf[2] = { frames[i % 4], '\0' };
 
-    write(1, "\r", 1); // return to start of line
-    write(1, &frames[i % 4], 1);
-    write(1, " ", 1);
+    print("\r");
+    print(buf);
 }
 
 static const char *art =
@@ -58,13 +58,13 @@ static int tempstrlen(const char *s)
 void main(void)
 {
 
-    write(1, "Hello, World, From Usermode!\n", 29);
-    write(1, "\n", 1);
-    write(1, art, tempstrlen(art));
-    write(1, "\n", 1);
-    write(1, "This is a simple demo of a usermode application.\n", 50);
-    write(1, "It will print a spinning dial to show that it's alive.\n", 56);
-    write(1, "Press Ctrl+C to exit.\n", 22);
+    print("Hello, World, From Usermode!\n");
+    print("\n");
+    print(art);
+    print("\n");
+    print("This is a simple demo of a usermode application.\n");
+    print("It will print a spinning dial to show that it's alive.\n");
+    print("Press Ctrl+C to exit.\n");
     int i = 0;
 
     while (1)

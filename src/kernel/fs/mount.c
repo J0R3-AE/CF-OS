@@ -12,34 +12,65 @@ static struct mount *find_mount_by_target(const char *target)
 {
     struct mount *m;
 
-    if (!target) return NULL;
+    if (!target)
+        return NULL;
 
     ListForEachEntry(m, g_mounts, link)
-    {if (m->target && strcmp(m->target, target) == 0) return m;}
+    {
+        if (m->target && strcmp(m->target, target) == 0)
+            return m;
+    }
 
     return NULL;
 }
 
 int mount_init(void)
-{LinkInit(&g_mounts); return EOK;}
+{
+    LinkInit(&g_mounts);
+    return EOK;
+}
 
 int mount_do_mount(struct fs_type *fst, const char *source, const char *target, const char *opts)
 {
-    if (!fst || !target) return EINVAL;
+    if (!fst || !target)
+        return EINVAL;
 
     KLOG_INFO("mount_do_mount: fst=%p type=%s source=%s target=%s", fst, fst->name, source ? source : "(null)", target);
 
     if (find_mount_by_target(target))
-    {KLOG_ERROR("mount_do_mount: target %s is already mounted", target); return ENOENT;}
+    {
+        KLOG_ERROR("mount_do_mount: target %s is already mounted", target);
+        return ENOENT;
+    }
 
     struct mount *m = calloc(1, sizeof(*m));
 
     if (!m)
-    {KLOG_ERROR("mount_do_mount: failed to allocate mount structure"); return ENOMEM;}
+    {
+        KLOG_ERROR("mount_do_mount: failed to allocate mount structure");
+        return ENOMEM;
+    }
 
     m->type = fst;
-    m->source = strdup(source ? source : "");
-    m->target = strdup(target);
+    /* replace strdup(source ? source : "") */
+    {
+        const char *src = source ? source : "";
+        size_t len = strlen(src);
+
+        m->source = malloc(len + 1);
+        if (m->source)
+            memcpy(m->source, src, len + 1);
+    }
+
+    /* replace strdup(target) */
+    {
+        const char *src = target ? target : "";
+        size_t len = strlen(src);
+
+        m->target = malloc(len + 1);
+        if (m->target)
+            memcpy(m->target, src, len + 1);
+    }
 
     KLOG_INFO("mount_do_mount: allocated mount %p type=%p source=%p target=%p", m, m->type, m->source, m->target);
     KLOG_INFO("mount_do_mount: source='%s' target='%s'", m->source, m->target);
@@ -77,7 +108,10 @@ int mount_do_mount(struct fs_type *fst, const char *source, const char *target, 
         KLOG_INFO("mount_do_mount: root_vnode helper returned %d, m->root_vnode=%p", r, m->root_vnode);
         if (r != 0)
         {
-            if (fst->fs_ops && fst->fs_ops->unmount){fst->fs_ops->unmount(m);}
+            if (fst->fs_ops && fst->fs_ops->unmount)
+            {
+                fst->fs_ops->unmount(m);
+            }
 
             free(m->source);
             free(m->target);
@@ -88,7 +122,7 @@ int mount_do_mount(struct fs_type *fst, const char *source, const char *target, 
     }
 
     ListBefore(&g_mounts, &m->link);
-    KLOG_INFO("mount_do_mount: after ListBefore m=%p root_vnode=%p g_mounts.next=%p",m, m->root_vnode, g_mounts.next);
+    KLOG_INFO("mount_do_mount: after ListBefore m=%p root_vnode=%p g_mounts.next=%p", m, m->root_vnode, g_mounts.next);
 
     if (target && target[0] == '/' && target[1] == '\0')
     {
@@ -106,7 +140,9 @@ int mount_do_mount(struct fs_type *fst, const char *source, const char *target, 
         }
 
         else
-        {KLOG_WARN("mount_do_mount: root already set, skipping vfs_set_root for %s", target);}
+        {
+            KLOG_WARN("mount_do_mount: root already set, skipping vfs_set_root for %s", target);
+        }
     }
 
     return EOK;
@@ -114,7 +150,8 @@ int mount_do_mount(struct fs_type *fst, const char *source, const char *target, 
 
 int mount_do_unmount(const char *target)
 {
-    if (!target) return EINVAL;
+    if (!target)
+        return EINVAL;
 
     struct mount *m;
 
@@ -126,10 +163,14 @@ int mount_do_unmount(const char *target)
             {
                 int r = m->type->fs_ops->unmount(m);
 
-                if (r != 0) return r;
+                if (r != 0)
+                    return r;
             }
 
-            if (vfs_get_root() == m->root_vnode){vfs_set_root(NULL);}
+            if (vfs_get_root() == m->root_vnode)
+            {
+                vfs_set_root(NULL);
+            }
 
             ListRemove(&m->link);
 
@@ -146,11 +187,13 @@ int mount_do_unmount(const char *target)
 
 int mount_lookup(const char *target, struct mount **out_mount)
 {
-    if (!target || !out_mount) return EINVAL;
+    if (!target || !out_mount)
+        return EINVAL;
 
     struct mount *m = find_mount_by_target(target);
 
-    if (!m) return ENOENT;
+    if (!m)
+        return ENOENT;
 
     *out_mount = m;
 
@@ -159,14 +202,17 @@ int mount_lookup(const char *target, struct mount **out_mount)
 
 int mount_lookup_vnode(const char *target, struct vnode **out_vnode)
 {
-    if (!target || !out_vnode) return EINVAL;
+    if (!target || !out_vnode)
+        return EINVAL;
 
     struct mount *m;
     int r = mount_lookup(target, &m);
 
-    if (r != 0) return r;
+    if (r != 0)
+        return r;
 
-    if (!m->root_vnode) return ENOENT;
+    if (!m->root_vnode)
+        return ENOENT;
 
     *out_vnode = m->root_vnode;
 
@@ -175,19 +221,21 @@ int mount_lookup_vnode(const char *target, struct vnode **out_vnode)
 
 int mount_list(struct mount ***out_mounts, usize *out_count)
 {
-    if (!out_mounts || !out_count) return EINVAL;
+    if (!out_mounts || !out_count)
+        return EINVAL;
 
     usize count = 0;
     struct mount *m;
 
-    ListForEachEntry(m, g_mounts, link){ count++;}
+    ListForEachEntry(m, g_mounts, link) { count++; }
 
     struct mount **arr = malloc(count * sizeof(*arr));
 
-    if (!arr && count != 0) return ENOMEM;
+    if (!arr && count != 0)
+        return ENOMEM;
 
     usize i = 0;
-    ListForEachEntry(m, g_mounts, link){arr[i++] = m;}
+    ListForEachEntry(m, g_mounts, link) { arr[i++] = m; }
 
     *out_mounts = arr;
     *out_count = count;
@@ -201,9 +249,15 @@ int mount_cleanup(void)
     {
         struct mount *m = LinkData(g_mounts.next, struct mount, link);
 
-        if (m->type && m->type->fs_ops && m->type->fs_ops->unmount){m->type->fs_ops->unmount(m);}
+        if (m->type && m->type->fs_ops && m->type->fs_ops->unmount)
+        {
+            m->type->fs_ops->unmount(m);
+        }
 
-        if (vfs_get_root() == m->root_vnode){vfs_set_root(NULL);}
+        if (vfs_get_root() == m->root_vnode)
+        {
+            vfs_set_root(NULL);
+        }
 
         ListRemove(&m->link);
 
@@ -216,7 +270,9 @@ int mount_cleanup(void)
 }
 
 int mount_shutdown(void)
-{return mount_cleanup();}
+{
+    return mount_cleanup();
+}
 
 int mount_sync(void)
 {
@@ -227,7 +283,8 @@ int mount_sync(void)
         if (m->type && m->type->fs_ops && m->type->fs_ops->sync)
         {
             int r = m->type->fs_ops->sync(m);
-            if (r != 0) return r;
+            if (r != 0)
+                return r;
         }
     }
 
@@ -236,10 +293,12 @@ int mount_sync(void)
 
 int mount_stat(const char *target, struct mount_stat *out_stat)
 {
-    if (!target || !out_stat) return EINVAL;
+    if (!target || !out_stat)
+        return EINVAL;
 
     struct mount *m = find_mount_by_target(target);
-    if (!m) return ENOENT;
+    if (!m)
+        return ENOENT;
 
     out_stat->source = m->source;
     out_stat->target = m->target;

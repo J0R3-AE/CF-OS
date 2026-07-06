@@ -11,7 +11,7 @@
 #include "libk/log.h"
 
 
-static volatile u32 g_pit_ticks = 0;
+volatile u32 g_pit_ticks = 0;
 static volatile u32 g_pit_frequency = 0;
 
 /* Legacy / compatibility helpers */
@@ -63,7 +63,7 @@ void pit_handler(registers_t *r)
 {
     (void)r;
 
-    g_ticks++;
+    g_pit_ticks++;
 
     wake_sleepers();
     sched_tick();
@@ -82,6 +82,7 @@ void pit_init(u32 hz)
 
     /* Make sure timer IRQ is enabled */
     pic_unmask_irq(0);
+    pic_unmask_irq(1);
 }
 
 void pit_log(void)

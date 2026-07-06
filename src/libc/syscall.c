@@ -13,6 +13,16 @@ static inline int syscall(int num, int a, int b, int c)
     return ret;
 }
 
+int print(const char *s)
+{
+    return syscall(SYS_print, (int)(uintptr_t)s, 0, 0);
+}
+
+int scan(char *buf, int max)
+{
+    return syscall(SYS_scan, (int)(uintptr_t)buf, max, 0);
+}
+
 int write(int fd, const void *buf, int count)
 {
     return syscall(SYS_write, fd, (int)(uintptr_t)buf, count);

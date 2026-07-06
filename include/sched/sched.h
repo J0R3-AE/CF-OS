@@ -36,7 +36,7 @@ typedef struct Thread
 
 extern Thread *g_current;
 extern Thread *g_idle_thread;
-extern volatile u32 g_ticks;
+extern volatile u32 g_pit_ticks;
 
 Thread *thread_create(void (*entry)(void *),
                       void *arg,

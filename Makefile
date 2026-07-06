@@ -49,6 +49,7 @@ ULIBC_OBJ := \
     build/libc/asm/math.o \
     build/libc/asm/mem.o \
     build/libc/asm/syscall.o \
+	build/libc/asm/string.o \
 	build/libc/syscall.o \
 
 # Strip src/kernel/ prefix

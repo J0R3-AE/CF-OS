@@ -157,19 +157,6 @@ void syscall_handler(registers_t *regs)
             break;
         }
 
-        // Print fallback
-        if (fd == 1 || fd == 2) // stdout or stderr
-        {
-            int written = 0;
-            for (int i = 0; i < count; i++)
-            {
-                TTY_putc(buf[i]);
-                i386SERIAL_write(buf[i]);
-                written++;
-            }
-            regs->eax = written;
-        }
-
         fd_table_t *fdt = syscall_get_fd_table();
         struct file *f = fdt ? fd_get(fdt, fd) : NULL;
 
@@ -197,37 +184,6 @@ void syscall_handler(registers_t *regs)
             break;
         }
 
-        //Scan fallback
-        if (fd == 0) // stdin - keyboard input
-        {
-            // Non-blocking read: return any available characters
-            int nread = 0;
-
-            while (nread < count)
-            {
-                int key = kbd_try_getchar();
-
-                if (key < 0)
-                {
-                    // No input available
-                    break;
-                }
-
-                
-
-                // Echo the character (TTY_putc handles all ASCII)
-                if (key != '\n') // Don't echo newline twice
-
-                    // Store in buffer
-                    buf[nread++] = (char)key;
-
-                // Stop at newline for line buffering
-                if (key == '\n')
-                    break;
-            }
-            regs->eax = nread;
-        }
-        
         fd_table_t *fdt = syscall_get_fd_table();
         struct file *f = fdt ? fd_get(fdt, fd) : NULL;
 
@@ -312,36 +268,60 @@ void syscall_handler(registers_t *regs)
 
     case SYS_scan:
     {
-        char *buf = (char *)(uintptr_t)arg1;
-        int count = arg2;
+        int fd = arg1;
+        char *buf = (char *)(uintptr_t)arg2;
+        int count = arg3;
 
-        if (!buf || count <= 0)
+        if (count <= 0 || !buf)
         {
-            regs->eax = ERR_INVALID_ARGUMENT;
+            regs->eax = -1;
             break;
         }
 
-        int nread = 0;
-
-        while (nread < count)
+        if (fd == 0) // stdin - keyboard input
         {
-            int key = kbd_try_getchar();
+            // Non-blocking read: return any available characters
+            int nread = 0;
 
-            if (key < 0)
+            while (nread < count)
             {
-                /* no input available */
-                break;
+                int key = kbd_try_getchar();
+
+                if (key < 0)
+                {
+                    // No input available
+                    break;
+                }
+
+                
+
+                // Echo the character (TTY_putc handles all ASCII)
+                if (key != '\n') // Don't echo newline twice
+
+                    // Store in buffer
+                    buf[nread++] = (char)key;
+
+                // Stop at newline for line buffering
+                if (key == '\n')
+                    break;
             }
-
-            /* store character */
-            buf[nread++] = (char)key;
-
-            /* stop at newline */
-            if (key == '\n')
-                break;
+            regs->eax = nread;
         }
-
-        regs->eax = nread;
+        else
+        {
+            fd_table_t *fdt = syscall_get_fd_table();
+            struct file *f = fdt ? fd_get(fdt, fd) : NULL;
+            if (f)
+            {
+                usize nread = 0;
+                int ret = vfs_read(f, buf, count, &nread);
+                regs->eax = (ret == 0) ? (int)nread : -1;
+            }
+            else
+            {
+                regs->eax = -1; // EBADF
+            }
+        }
         break;
     }
 

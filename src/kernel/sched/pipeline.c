@@ -5,7 +5,7 @@ static volatile int need_resched = 0;
 
 void sched_tick(void)
 {
-    g_ticks++;
+    g_pit_ticks++;
     wake_sleepers();
     need_resched = 1;
 }

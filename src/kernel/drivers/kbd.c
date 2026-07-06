@@ -1,9 +1,11 @@
 #include "drivers/kbd.h"
 #include "drivers/keyboard.h"
+#include "drivers/serial.h"
+#include "drivers/tty.h"
 #include "sched/sched.h"
 #include <stdbool.h>
 
-#define KBD_BUF_SIZE 256   /* power of two */
+#define KBD_BUF_SIZE 256 /* power of two */
 
 static int kbd_buf[KBD_BUF_SIZE];
 static volatile unsigned int kbd_head = 0;
@@ -61,12 +63,23 @@ void kbd_push(int key)
 
 int kbd_try_getchar(void)
 {
-    if (kbd_head == kbd_tail)
-        return -1;
+    if (kbd_head != kbd_tail)
+    {
+        int key = kbd_buf[kbd_tail];
+        kbd_tail = next_index(kbd_tail);
+        return key;
+    }
 
-    int key = kbd_buf[kbd_tail];
-    kbd_tail = next_index(kbd_tail);
-    return key;
+    if (serial_is_initialized() && serial_received())
+    {
+        char c = serial_read_char();
+        if (c == '\r')
+            c = '\n';
+        TTY_putc(c);
+        return (unsigned char)c;
+    }
+
+    return -1;
 }
 
 /* ----------------------------
@@ -94,6 +107,7 @@ int kbd_read(void *buf, usize len)
         /* ENTER */
         if (key == KEY_ENTER || key == '\n')
         {
+            TTY_putc('\n');
             out[count++] = '\n';
             break;
         }
@@ -102,30 +116,37 @@ int kbd_read(void *buf, usize len)
         if (key == KEY_BACKSPACE || key == '\b')
         {
             if (count > 0)
+            {
                 count--;
+
+                /* Erase character on screen */
+                TTY_putc('\b');
+                TTY_putc(' ');
+                TTY_putc('\b');
+            }
+
             continue;
         }
 
-        /* ESC (useful for menu exit) */
+        /* ESC */
         if (key == KEY_ESC)
         {
-            out[count++] = 27; /* ASCII ESC */
+            out[count++] = 27;
             break;
         }
 
-        /* arrows go through as special codes */
+        /* Arrow keys (ignore for now) */
         if (key >= KEY_UP && key <= KEY_DOWN)
         {
-            out[count++] = key;
             continue;
         }
 
-        /* normal ASCII */
+        /* Printable ASCII */
         if (key >= 32 && key < 127)
         {
-            out[count++] = (char)key;
+            TTY_putc((char)key);      /* Echo to screen */
+            out[count++] = (char)key; /* Store in buffer */
         }
-
     }
 
     out[count] = '\0';

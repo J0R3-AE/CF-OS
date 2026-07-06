@@ -48,6 +48,25 @@
 #define SYS_brk         18
 #define SYS_sbrk        19
 
+#define SYS_print 40
+#define SYS_scan 41
+#define SYS_printcolor 42
+
+/* --------------------------------------------------------------------------
+ * User-space libc wrappers
+ * -------------------------------------------------------------------------- */
+int print(const char *s);
+int scan(char *buf, int max);
+int write(int fd, const void *buf, int count);
+int read(int fd, void *buf, int count);
+int open(const char *path, int flags);
+int close(int fd);
+int getpid(void);
+int execve(const char *path, char *const argv[]);
+int readdir(int fd, int index, void *out);
+void exit(int status);
+int shell(void);
+
 /* --------------------------------------------------------------------------
  * Future reserved range (DO NOT USE YET)
  * -------------------------------------------------------------------------- */

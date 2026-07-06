@@ -128,35 +128,20 @@ typedef enum Errno
 #define ECONNRESET   ERR_CONNECTION_RESET
 #define EADDRINUSE   ERR_ADDRESS_IN_USE_NET
 
-
-/// @brief Convert an Errno value to a human-readable string.
-/// @param err The error code to convert.
-/// @return A pointer to the error string.
 #define IS_ERR(x) ((x) < 0)
 #define PTR_ERR(x) ((int)(intptr_t)(x))
 #define ERR_PTR(x) ((void *)(intptr_t)(x))
 
-/// @brief Universal success-or-error propagation
-/// @param x The error code to check.
-/// @return The error code if it indicates an error, otherwise a success value.
 #define ERR_SUCCESS_PTR  ((void *)0)
-#define ERR_SUCCESS_INT  0
 #define ERR_SUCCESS_VOID ((void)0)
 #define ERR_SUCCESS_BOOL true
 
-/// @brief Universal success-or-error propagation
-/// @param x The error code to check.
-/// @return The error code if it indicates an error, otherwise a success value.
 #define ERR_SUCCESS_OR(x)        ((x) < 0 ? (x) : ERR_SUCCESS_INT)
 #define ERR_SUCCESS_OR_PTR(x)    ((x) < 0 ? (void *)(intptr_t)(x) : ERR_SUCCESS_PTR)
 #define ERR_SUCCESS_OR_BOOL(x)   ((x) < 0 ? (x) : ERR_SUCCESS_BOOL)
 #define ERR_SUCCESS_OR_VOID(x)   ((x) < 0 ? (x) : ERR_SUCCESS_VOID)
 #define ERR_SUCCESS_OR_ERRNO(x)  ((x) < 0 ? (x) : ERR_SUCCESS_INT)
 
-/// @brief Universal success-or-error propagation with fallback value
-/// @param x The error code to check.
-/// @param y The fallback value to use if the error code indicates success.
-/// @return The error code if it indicates an error, otherwise the fallback value.
 #define ERR_SUCCESS_OR_ERRNO_OR(x, y) ((x) < 0 ? (x) : (y))
 
 /// @brief Convert an Errno value to a human-readable string.

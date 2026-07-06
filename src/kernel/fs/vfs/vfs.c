@@ -25,9 +25,9 @@ static int vfs_generic_seek(struct file *f, usize off);
 static int vfs_generic_close(struct file *f);
 
 const struct file_ops vfs_generic_file_ops = {
-    .read  = vfs_generic_read,
+    .read = vfs_generic_read,
     .write = vfs_generic_write,
-    .seek  = vfs_generic_seek,
+    .seek = vfs_generic_seek,
     .close = vfs_generic_close,
 };
 
@@ -197,7 +197,21 @@ struct vnode *vfs_resolve_path(const char *path,
 
         if (!has_more)
         {
-            char *leaf = strdup(name);
+            char *leaf;
+            if (name)
+            {
+                size_t len = strlen(name);
+                leaf = malloc(len + 1);
+                if (leaf)
+                    memcpy(leaf, name, len + 1);
+            }
+            else
+            {
+                leaf = malloc(1);
+                if (leaf)
+                    leaf[0] = '\0';
+            }
+
             if (!leaf)
                 return NULL;
 
@@ -456,4 +470,9 @@ int vfs_exec(const char *path)
 
     /* file-backed exec (ELF) */
     return exec_elf_vnode(vn);
+}
+
+int vfs_chroot(struct vnode *new_root)
+{
+    return;
 }

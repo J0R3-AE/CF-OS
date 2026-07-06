@@ -1,46 +1,42 @@
-static void output_prompt()
+#include "syscall.h"
+#include "libk/string.h"
+#include "libk/dirent.h"
+
+int shell(void)
 {
+    char buf[256];
 
-}
+    print("MiniOS Shell\n");
 
-static void output_line(char* line)
-{
+    while (1)
+    {
+        print("> ");
 
-}
+        int n = scan(buf, sizeof(buf));
 
-static int input_line_waiting()
-{
-    // TODO: perhaps someone more familiar with the C library could write a better example?
-}
+        if (n <= 0)
+            continue;
 
-static char* input_line()
-{
-    // TODO: perhaps someone more familiar with the C library could write a better example?
-    // TODO: this function will allocate a char buffer containing the line read
-}
+        /* ensure null termination */
+        buf[n] = '\0';
 
-static int process_start(char* command)
-{
-    // TODO: needs to return an int identifying this process
-}
+        /* remove trailing newline */
+        if (n > 0 && buf[n - 1] == '\n')
+            buf[n - 1] = '\0';
 
-static int process_executing(int proc)
-{
-    // TODO: what would be a good example here?
-}
+        if (buf[0] == '\0')
+            continue;
 
-static void process_send_input_line(int proc, char* line)
-{
-    // TODO: what would be a good example here?
-}
+        if (!strcmp(buf, "exit"))
+        {
+            print("bye\n");
+            break;
+        }
 
-static int process_output_line_waiting(int proc)
-{
-    // TODO: what would be a good example here?
-}
+        print("You typed: ");
+        print(buf);
+        print("\n");
+    }
 
-static char* process_get_output_line(int proc)
-{
-    // TODO: what would be a good example here?
-    // TODO: this function will allocate a char buffer containing the line read
+    return 0;
 }

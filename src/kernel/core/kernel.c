@@ -42,7 +42,7 @@ void kmain(u32 magic, multiboot_info_t *mbi)
 
     TTY_init();
 
-    printf("Welcome to MiniOS!\n");
+    printf("Welcome to AescOS!\n");
 
     log_set_hide_info(0);
     log_set_hide_all(1);
