@@ -17,9 +17,6 @@ int shell(void)
         if (n <= 0)
             continue;
 
-        /* ensure null termination */
-        buf[n] = '\0';
-
         /* remove trailing newline */
         if (n > 0 && buf[n - 1] == '\n')
             buf[n - 1] = '\0';

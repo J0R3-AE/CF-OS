@@ -168,6 +168,7 @@ void syscall_handler(registers_t *regs)
                 written++;
             }
             regs->eax = written;
+            break;
         }
 
         fd_table_t *fdt = syscall_get_fd_table();
@@ -197,37 +198,13 @@ void syscall_handler(registers_t *regs)
             break;
         }
 
-        //Scan fallback
-        if (fd == 0) // stdin - keyboard input
+        /* stdin: cooked, non-blocking line read (partial line OK) */
+        if (fd == 0)
         {
-            // Non-blocking read: return any available characters
-            int nread = 0;
-
-            while (nread < count)
-            {
-                int key = kbd_try_getchar();
-
-                if (key < 0)
-                {
-                    // No input available
-                    break;
-                }
-
-                
-
-                // Echo the character (TTY_putc handles all ASCII)
-                if (key != '\n') // Don't echo newline twice
-
-                    // Store in buffer
-                    buf[nread++] = (char)key;
-
-                // Stop at newline for line buffering
-                if (key == '\n')
-                    break;
-            }
-            regs->eax = nread;
+            regs->eax = kbd_read_line(buf, count, 0);
+            break;
         }
-        
+
         fd_table_t *fdt = syscall_get_fd_table();
         struct file *f = fdt ? fd_get(fdt, fd) : NULL;
 
@@ -321,27 +298,8 @@ void syscall_handler(registers_t *regs)
             break;
         }
 
-        int nread = 0;
-
-        while (nread < count)
-        {
-            int key = kbd_try_getchar();
-
-            if (key < 0)
-            {
-                /* no input available */
-                break;
-            }
-
-            /* store character */
-            buf[nread++] = (char)key;
-
-            /* stop at newline */
-            if (key == '\n')
-                break;
-        }
-
-        regs->eax = nread;
+        /* blocking line read: echoes, honors backspace, NUL-terminates */
+        regs->eax = kbd_read_line(buf, count, 1);
         break;
     }
 

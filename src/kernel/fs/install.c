@@ -24,8 +24,8 @@ extern struct fs_type ext2_type;
  */
 int install_mount_disk_root(void)
 {
-    struct blockdev *bd = blockdev_open("ata0");
-    if (!bd)
+    struct blockdev *bdev = blockdev_lookup("hd0");
+    if (!bdev)
     {
         KLOG_WARN("install_mount_disk_root: no ATA device found");
         return -1;

@@ -7,7 +7,7 @@ static u32 fat16_get(struct fat_super *sb, u32 index)
     u32 ent_offset = fat_offset % sb->bytes_per_sector;
 
     u8 buf[512];
-    sb->bdev->read(sb->bdev, fat_sector, 1, buf);
+    blockdev_read(sb->bdev, fat_sector, 1, buf);
 
     u16 val = *(u16 *)(buf + ent_offset);
     return val;

@@ -67,14 +67,14 @@ static int ext2_read_block(ext2_super_t *sb, u32 block, void *buf)
 {
     u32 lba = (sb->block_size / sb->bdev->sector_size) * block;
     u32 count = sb->block_size / sb->bdev->sector_size;
-    return sb->bdev->read(sb->bdev, lba, count, buf);
+    return blockdev_read(sb->bdev, lba, count, buf);
 }
 
 static int ext2_write_block(ext2_super_t *sb, u32 block, const void *buf)
 {
     u32 lba = (sb->block_size / sb->bdev->sector_size) * block;
     u32 count = sb->block_size / sb->bdev->sector_size;
-    return sb->bdev->write(sb->bdev, lba, count, buf);
+    return blockdev_write(sb->bdev, lba, count, buf);
 }
 
 static int ext2_read_inode(ext2_super_t *sb, u32 ino, ext2_inode_disk_t *out)
@@ -239,7 +239,7 @@ static struct vnode *ext2_alloc_vnode(struct mount *mp, ext2_super_t *sb, u32 in
 
 static int ext2_mount_fn(struct mount *mp, const char *opts)
 {
-    struct blockdev *bdev = blockdev_open(mp->source);
+    struct blockdev *bdev = blockdev_lookup(mp->source);
     if (!bdev)
     {
         return -1;
@@ -251,7 +251,7 @@ static int ext2_mount_fn(struct mount *mp, const char *opts)
 
     u8 buf[1024];
     // superblock at block 1, offset 1024
-    int rc = bdev->read(bdev, 2, 2, buf); // assuming 512-byte sectors
+    int rc = blockdev_read(bdev, 2, 2, buf); // assuming 512-byte sectors
 
     memcpy(&sb->inodes_count, buf + 0, 4);
     memcpy(&sb->blocks_count, buf + 4, 4);
@@ -503,7 +503,7 @@ static int ext2_alloc_block(ext2_super_t *sb, u32 *out_block)
                         bitmap[byte] |= (1 << bit);
 
                         /* Write bitmap back */
-                        sb->bdev->write(sb->bdev,
+                        blockdev_write(sb->bdev,
                                         (sb->block_size / sb->bdev->sector_size) * bgd->block_bitmap,
                                         sb->block_size / sb->bdev->sector_size,
                                         bitmap);
@@ -519,7 +519,7 @@ static int ext2_alloc_block(ext2_super_t *sb, u32 *out_block)
                         memcpy(buf + (group % desc_per_block) * sizeof(ext2_bg_desc_t),
                                bgd, sizeof(ext2_bg_desc_t));
 
-                        sb->bdev->write(sb->bdev,
+                        blockdev_write(sb->bdev,
                                         (sb->block_size / sb->bdev->sector_size) * (bgdt_block + (group / desc_per_block)),
                                         sb->block_size / sb->bdev->sector_size,
                                         buf);

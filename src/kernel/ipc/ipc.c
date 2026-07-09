@@ -3,7 +3,6 @@
 #include "mm/heap.h"
 #include "libk/string.h"
 #include "libk/mem.h"
-#include "libk/log.h"
 
 typedef struct ipc_service_node
 {

@@ -73,8 +73,6 @@ int ata_identify(void)
     }
 
     u32 sectors =((u32)id_data[60])|((u32)id_data[61] << 16);
-
-    KLOG_LOG("ATA: model='%s' sectors=%u", model, sectors);
     return 0;
 }
 
@@ -103,7 +101,6 @@ int ata_read28(u32 lba, void *buf, u32 count)
 
         lba++;
     }
-    KLOG_OKAY("ata_read28: read %u sectors starting at LBA %u into buffer %p", count, start_lba, buf);
     return 0;
 }
 
@@ -132,7 +129,5 @@ int ata_write28(u32 lba, const void *buf, u32 count)
 
         lba++;
     }
-
-    KLOG_OKAY("ata_write28: wrote %u sectors starting at LBA %u from buffer %p", count, start_lba, buf);
     return 0;
 }

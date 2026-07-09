@@ -60,7 +60,7 @@ void fat_init(void)
 
 static int fat_read_sector(fat_super_t *sb, u32 lba, void *buf)
 {
-    return sb->bdev->read(sb->bdev, lba, 1, buf);
+    return blockdev_read(sb->bdev, lba, 1, buf);
 }
 
 static fat_type_t fat_probe_type(fat_super_t *sb)
@@ -104,14 +104,14 @@ static u32 fat_cluster_to_lba(fat_super_t *sb, u32 cluster)
 static int fat_read_cluster(fat_super_t *sb, u32 cluster, void *buf)
 {
     u32 lba = fat_cluster_to_lba(sb, cluster);
-    return sb->bdev->read(sb->bdev, lba, sb->sectors_per_cluster, buf);
+    return blockdev_read(sb->bdev, lba, sb->sectors_per_cluster, buf);
 }
 
 // ---- mount ----
 
 static int fat_mount_fn(struct mount *mp, const char *opts)
 {
-    struct blockdev *bdev = blockdev_open(mp->source);
+    struct blockdev *bdev = blockdev_lookup(mp->source);
     if (!bdev)
         return -1;
 
@@ -120,7 +120,7 @@ static int fat_mount_fn(struct mount *mp, const char *opts)
     sb->bdev = bdev;
 
     u8 bpb[512];
-    bdev->read(bdev, 0, 1, bpb);
+    blockdev_read(bdev, 0, 1, bpb);
 
     memcpy(&sb->bytes_per_sector, bpb + 11, 2);
     memcpy(&sb->sectors_per_cluster, bpb + 13, 1);

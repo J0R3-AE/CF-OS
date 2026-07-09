@@ -31,17 +31,12 @@ void pic_remap(int offset1, int offset2)
     io_Write8(PIC2_REG_IMR, mask2);
 }
 
-void pic_init(void)
-{
-    pic_remap(0x20, 0x28); /* Remap PIC1 to 0x20-0x27 and PIC2 to 0x28-0x2F */
-}
+/* Remap PIC1 to 0x20-0x27 and PIC2 to 0x28-0x2F */
+void pic_init(void){pic_remap(0x20, 0x28); }
 
 void pic_send_eoi(uint8_t irq)
 {
-    if (irq >= 8)
-    {
-        io_Write8(PIC_SLAVE_CMD, PIC_CMD_EOI);
-    }
+    if (irq >= 8){io_Write8(PIC_SLAVE_CMD, PIC_CMD_EOI);}
     io_Write8(PIC_MASTER_CMD, PIC_CMD_EOI);
 }
 
@@ -50,10 +45,7 @@ void pic_mask_irq(uint8_t irq)
     uint16_t port;
     uint8_t value;
 
-    if (irq < 8)
-    {
-        port = PIC1_REG_IMR;
-    }
+    if (irq < 8){port = PIC1_REG_IMR;}
     else
     {
         port = PIC2_REG_IMR;
@@ -69,10 +61,7 @@ void pic_unmask_irq(uint8_t irq)
     uint16_t port;
     uint8_t value;
 
-    if (irq < 8)
-    {
-        port = PIC1_REG_IMR;
-    }
+    if (irq < 8){port = PIC1_REG_IMR;}
     else
     {
         port = PIC2_REG_IMR;

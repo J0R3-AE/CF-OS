@@ -6,6 +6,8 @@
 #include <stdbool.h>
 
 #define KBD_BUF_SIZE 256 /* power of two */
+#define KBD_LINE_MAX      256
+#define KBD_HISTORY_DEPTH 16
 
 static int kbd_buf[KBD_BUF_SIZE];
 static volatile unsigned int kbd_head = 0;
@@ -37,6 +39,20 @@ int kbd_has_char(void)
     return kbd_head != kbd_tail;
 }
 
+static void echo_char(char c)
+{
+    TTY_putc(c);
+
+    if (serial_is_initialized())
+        i386SERIAL_write(c);
+}
+
+static void erase_last_glyph(void)
+{
+    echo_char('\b');
+    echo_char(' ');
+    echo_char('\b');
+}
 /* ----------------------------
    push from IRQ layer
    (IMPORTANT: already ASCII / KEY_* translated here)
@@ -151,4 +167,87 @@ int kbd_read(void *buf, usize len)
 
     out[count] = '\0';
     return (int)count;
+}
+
+int kbd_read_line(char *buf, int count, int block)
+{
+    if (!buf || count <= 0)
+        return 0;
+
+    if (count == 1)
+    {
+        buf[0] = '\0';
+        return 0;
+    }
+
+    int nread = 0;
+
+    for (;;)
+    {
+        int key = kbd_try_getchar();
+
+        if (key < 0)
+        {
+            if (!block)
+                break;
+            ksched_yield();
+            continue;
+        }
+
+        if (key == KEY_BACKSPACE || key == KEY_DELETE)
+        {
+            if (nread > 0)
+            {
+                nread--;
+                erase_last_glyph();
+            }
+            continue;
+        }
+
+        if (key == '\n')
+        {
+            if (nread < count - 1)
+                buf[nread++] = '\n';
+            echo_char('\n');
+            break;
+        }
+
+        if (nread >= count - 1)
+            continue; /* buffer full: drop until newline or backspace */
+
+        buf[nread++] = (char)key;
+        echo_char((char)key);
+    }
+
+    buf[nread] = '\0';
+    return nread;
+}
+
+void kbd_history_init(kbd_history_t *h)
+{
+    if (!h)
+        return;
+    h->count = 0;
+    h->cursor = -1;
+    for (int i = 0; i < KBD_HISTORY_DEPTH; i++)
+        h->entries[i][0] = '\0';
+}
+
+void kbd_history_push(kbd_history_t *h, const char *line)
+{
+    if (!h || !line)
+        return;
+
+    /* drop exact duplicate of the most recent entry */
+    if (h->count > 0 && strncmp(h->entries[h->count - 1], line, KBD_LINE_MAX) == 0)
+        return;
+
+    int slot = h->count % KBD_HISTORY_DEPTH;
+    strncpy(h->entries[slot], line, KBD_LINE_MAX - 1);
+    h->entries[slot][KBD_LINE_MAX - 1] = '\0';
+
+    if (h->count < KBD_HISTORY_DEPTH)
+        h->count++;
+
+    h->cursor = -1;
 }

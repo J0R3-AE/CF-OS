@@ -1,23 +1,19 @@
 #include "fs/vfs.h"
 #include "fs/fs_types.h"
 #include "fs/mount.h"
-
 #include "libk/string.h"
-#include "libk/log.h"
+#include "libk/mem.h"
+#include "libk/link.h"
+#include "libk/errno.h"
 #include "mm/heap.h"
 #include "proc/proc.h"
-#include "libk/link.h"
 
-/* -------------------------------------------------------------------------- */
-/* Globals                                                                    */
-/* -------------------------------------------------------------------------- */
+// Globals
 
-Link g_fs_types; /* intrusive FS registry list head */
+Link g_fs_types; // intrusive FS regi
 static struct vnode *g_root_vnode = NULL;
 
-/* -------------------------------------------------------------------------- */
-/* File ops                                                                   */
-/* -------------------------------------------------------------------------- */
+// File ops
 
 static int vfs_generic_read(struct file *f, void *buf, usize len, usize *out);
 static int vfs_generic_write(struct file *f, const void *buf, usize len, usize *out);
@@ -31,24 +27,21 @@ const struct file_ops vfs_generic_file_ops = {
     .close = vfs_generic_close,
 };
 
-/* -------------------------------------------------------------------------- */
-/* FS registry                                                                */
-/* -------------------------------------------------------------------------- */
-
+// FS registry
 int vfs_register_fs(struct fs_type *fst)
 {
     if (!fst || !fst->name)
-        return EINVAL;
+        return ERR_INVALID_ARGUMENT;
 
     LinkInit(&fst->link);
     LinkBefore(&g_fs_types, &fst->link);
-    return EOK;
+
+    return ERR_SUCCESS;
 }
 
 static struct fs_type *find_fs_type(const char *name)
 {
     struct fs_type *it;
-
     ListForEachEntry(it, g_fs_types, link)
     {
         if (strcmp(it->name, name) == 0)
@@ -58,57 +51,36 @@ static struct fs_type *find_fs_type(const char *name)
     return NULL;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Root vnode                                                                  */
-/* -------------------------------------------------------------------------- */
-
+// Root vnode
 int vfs_set_root(struct vnode *root)
 {
-    KLOG_INFO("vfs_set_root: old_root=%p new_root=%p", g_root_vnode, root);
     g_root_vnode = root;
-    return EOK;
+    return ERR_SUCCESS;
 }
 
-struct vnode *vfs_get_root(void)
-{
-    KLOG_INFO("vfs_get_root: returning %p", g_root_vnode);
-    return g_root_vnode;
-}
+struct vnode *vfs_get_root(void) { return g_root_vnode; }
 
-/* -------------------------------------------------------------------------- */
-/* Lookup helpers                                                              */
-/* -------------------------------------------------------------------------- */
-
+// Lookup helpers
 static int vfs_lookup_component(struct vnode *dir, const char *name, struct vnode **out)
 {
     if (!dir || !name || !out)
-        return EINVAL;
-
+        return ERR_INVALID_ARGUMENT;
     if (!dir->ops || !dir->ops->lookup)
-        return ENOENT;
-
+        return ERR_ADDRESS_IN_USE;
     return dir->ops->lookup(dir, name, out);
 }
 
 int vfs_lookup(const char *path, struct vnode **out)
 {
     if (!path || !out)
-        return EINVAL;
-
+        return ERR_INVALID_ARGUMENT;
     if (path[0] != '/')
-        return ENOENT;
-
+        return ERR_ADDRESS_IN_USE;
     struct vnode *cur = g_root_vnode;
     if (!cur)
-    {
-        KLOG_ERROR("vfs_lookup: root vnode is NULL for path %s", path);
-        return ENOENT;
-    }
-
+        return ERR_ADDRESS_IN_USE;
     const char *p = path + 1;
     char name[64];
-
-    KLOG_INFO("vfs_lookup: resolving path %s from root %p", path, cur);
 
     while (*p)
     {
@@ -127,24 +99,18 @@ int vfs_lookup(const char *path, struct vnode **out)
             continue;
         }
 
-        KLOG_INFO("vfs_lookup: lookup %s in vnode %p", name, cur);
-
         struct vnode *next = NULL;
         int r = vfs_lookup_component(cur, name, &next);
         if (r != 0)
-        {
-            KLOG_ERROR("vfs_lookup: lookup %s in vnode %p failed with %d", name, cur, r);
             return r;
-        }
 
-        KLOG_INFO("vfs_lookup: resolved %s to vnode %p", name, next);
         cur = next;
-
         p += (p[len] == '/') ? (len + 1) : len;
     }
 
     *out = cur;
-    return EOK;
+
+    return ERR_SUCCESS;
 }
 
 struct vnode *vfs_resolve(const char *path)
@@ -155,24 +121,16 @@ struct vnode *vfs_resolve(const char *path)
     return NULL;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Path resolve                                                                */
-/* -------------------------------------------------------------------------- */
-
-struct vnode *vfs_resolve_path(const char *path,
-                               struct vnode **parent_out,
-                               const char **leaf_name_out)
+// Path resolve
+struct vnode *vfs_resolve_path(const char *path, struct vnode **parent_out, const char **leaf_name_out)
 {
     if (!path || !parent_out || !leaf_name_out)
         return NULL;
-
     if (path[0] != '/')
         return NULL;
-
     struct vnode *cur = g_root_vnode;
     if (!cur)
         return NULL;
-
     const char *p = path + 1;
 
     while (*p)
@@ -185,6 +143,7 @@ struct vnode *vfs_resolve_path(const char *path,
             name[len] = p[len];
             len++;
         }
+
         name[len] = '\0';
 
         if (len == 0)
@@ -194,23 +153,15 @@ struct vnode *vfs_resolve_path(const char *path,
         }
 
         bool has_more = (p[len] == '/');
-
         if (!has_more)
         {
             char *leaf;
-            if (name)
-            {
-                size_t len = strlen(name);
-                leaf = malloc(len + 1);
-                if (leaf)
-                    memcpy(leaf, name, len + 1);
-            }
-            else
-            {
-                leaf = malloc(1);
-                if (leaf)
-                    leaf[0] = '\0';
-            }
+            size_t len = strlen(name);
+
+            leaf = malloc(len + 1);
+
+            if (leaf)
+                memcpy(leaf, name, len + 1);
 
             if (!leaf)
                 return NULL;
@@ -222,7 +173,6 @@ struct vnode *vfs_resolve_path(const char *path,
 
         if (!cur->ops || !cur->ops->lookup)
             return NULL;
-
         struct vnode *next = NULL;
         int r = cur->ops->lookup(cur, name, &next);
         if (r != 0)
@@ -235,14 +185,11 @@ struct vnode *vfs_resolve_path(const char *path,
     return NULL;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Open / close                                                                */
-/* -------------------------------------------------------------------------- */
-
+// Open / close
 int vfs_open(const char *path, u32 flags, struct file **out)
 {
     if (!path || !out)
-        return EINVAL;
+        return ERR_INVALID_ARGUMENT;
 
     struct vnode *vn = NULL;
     int r = vfs_lookup(path, &vn);
@@ -253,18 +200,18 @@ int vfs_open(const char *path, u32 flags, struct file **out)
         const char *leaf = NULL;
 
         if (!vfs_resolve_path(path, &parent, &leaf))
-            return ENOENT;
+            return ERR_ADDRESS_IN_USE;
 
         if (!parent || !leaf || leaf[0] == '\0')
         {
             free((void *)leaf);
-            return ENOENT;
+            return ERR_ADDRESS_IN_USE;
         }
 
         if (!parent->ops || !parent->ops->create)
         {
             free((void *)leaf);
-            return ENOENT;
+            return ERR_ADDRESS_IN_USE;
         }
 
         r = parent->ops->create(parent, leaf, VNODE_TYPE_FILE, &vn);
@@ -288,14 +235,13 @@ int vfs_open(const char *path, u32 flags, struct file **out)
     f->ops = &vfs_generic_file_ops;
 
     *out = f;
-    return EOK;
+    return ERR_SUCCESS;
 }
 
 struct file *vfs_open_vnode(struct vnode *vn)
 {
     if (!vn)
         return NULL;
-
     struct file *f = calloc(1, sizeof(*f));
     if (!f)
         return NULL;
@@ -311,57 +257,47 @@ struct file *vfs_open_vnode(struct vnode *vn)
 int vfs_close(struct file *f)
 {
     if (!f)
-        return EOK;
+        return ERR_SUCCESS;
 
     free(f);
-    return EOK;
+    return ERR_SUCCESS;
 }
 
-/* -------------------------------------------------------------------------- */
-/* File ops                                                                    */
-/* -------------------------------------------------------------------------- */
-
+// File ops
 static int vfs_generic_read(struct file *f, void *buf, usize len, usize *out)
 {
     if (!f || !f->vn || !f->vn->ops || !f->vn->ops->read)
-        return EINVAL;
-
+        return ERR_INVALID_ARGUMENT;
     usize done = 0;
     int r = f->vn->ops->read(f->vn, buf, f->offset, len, &done);
-
     if (r == 0)
         f->offset += done;
-
     if (out)
         *out = done;
-
     return r;
 }
 
 static int vfs_generic_write(struct file *f, const void *buf, usize len, usize *out)
 {
     if (!f || !f->vn || !f->vn->ops || !f->vn->ops->write)
-        return EINVAL;
+        return ERR_INVALID_ARGUMENT;
 
     usize done = 0;
     int r = f->vn->ops->write(f->vn, buf, f->offset, len, &done);
-
     if (r == 0)
         f->offset += done;
-
     if (out)
         *out = done;
-
     return r;
 }
 
 static int vfs_generic_seek(struct file *f, usize off)
 {
     if (!f)
-        return EINVAL;
+        return ERR_INVALID_ARGUMENT;
 
     f->offset = off;
-    return EOK;
+    return ERR_SUCCESS;
 }
 
 static int vfs_generic_close(struct file *f)
@@ -369,14 +305,11 @@ static int vfs_generic_close(struct file *f)
     return vfs_close(f);
 }
 
-/* -------------------------------------------------------------------------- */
-/* Public read/write/readdir                                                   */
-/* -------------------------------------------------------------------------- */
-
+// Public read/write/readdir
 int vfs_read(struct file *f, void *buf, usize len, usize *out)
 {
     if (!f || !f->ops || !f->ops->read)
-        return EINVAL;
+        return ERR_INVALID_ARGUMENT;
 
     return f->ops->read(f, buf, len, out);
 }
@@ -384,7 +317,7 @@ int vfs_read(struct file *f, void *buf, usize len, usize *out)
 int vfs_write(struct file *f, const void *buf, usize len, usize *out)
 {
     if (!f || !f->ops || !f->ops->write)
-        return EINVAL;
+        return ERR_INVALID_ARGUMENT;
 
     return f->ops->write(f, buf, len, out);
 }
@@ -392,20 +325,17 @@ int vfs_write(struct file *f, const void *buf, usize len, usize *out)
 int vfs_readdir(struct vnode *vn, usize index, const char **name_out, vnode_type_t *type_out)
 {
     if (!vn || !vn->ops || !vn->ops->readdir)
-        return ENOENT;
+        return ERR_ADDRESS_IN_USE;
 
     return vn->ops->readdir(vn, index, name_out, type_out);
 }
 
-/* -------------------------------------------------------------------------- */
-/* Mount                                                                       */
-/* -------------------------------------------------------------------------- */
-
+// Mount
 int vfs_mount(const char *fs_name, const char *source, const char *target, const char *opts)
 {
     struct fs_type *fst = find_fs_type(fs_name);
     if (!fst)
-        return ENOENT;
+        return ERR_ADDRESS_IN_USE;
 
     return mount_do_mount(fst, source, target, opts);
 }
@@ -415,31 +345,28 @@ int vfs_unmount(const char *target)
     return mount_do_unmount(target);
 }
 
-/* -------------------------------------------------------------------------- */
-/* Exec                                                                        */
-/* -------------------------------------------------------------------------- */
-
+// Exec
 int vfs_create_exec(const char *path, exec_fn_t fn)
 {
     if (!path)
-        return EINVAL;
+        return ERR_INVALID_ARGUMENT;
 
     struct vnode *parent = NULL;
     const char *name = NULL;
 
     if (!vfs_resolve_path(path, &parent, &name))
-        return ENOENT;
+        return ERR_ADDRESS_IN_USE;
 
     if (!parent || !name || name[0] == '\0')
     {
         free((void *)name);
-        return ENOENT;
+        return ERR_ADDRESS_IN_USE;
     }
 
     if (!parent->ops || !parent->ops->create)
     {
         free((void *)name);
-        return ENOENT;
+        return ERR_ADDRESS_IN_USE;
     }
 
     struct vnode *node = NULL;
@@ -451,7 +378,7 @@ int vfs_create_exec(const char *path, exec_fn_t fn)
         return r;
 
     node->exec = fn;
-    return EOK;
+    return ERR_SUCCESS;
 }
 
 int vfs_exec(const char *path)
@@ -461,18 +388,23 @@ int vfs_exec(const char *path)
     if (r != 0)
         return r;
 
-    /* function-backed exec */
+    // functi
     if (vn->type == VNODE_TYPE_EXEC && vn->exec)
     {
         vn->exec(NULL);
         return 0;
     }
 
-    /* file-backed exec (ELF) */
+    // file-bac
     return exec_elf_vnode(vn);
 }
 
 int vfs_chroot(struct vnode *new_root)
 {
-    return;
+    if (!new_root)
+        return ERR_INVALID_ARGUMENT;
+
+    g_root_vnode = new_root;
+
+    return ERR_SUCCESS;
 }

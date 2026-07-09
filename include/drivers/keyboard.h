@@ -25,6 +25,7 @@
 #define KEY_TAB         9
 #define KEY_ENTER       10
 #define KEY_ESC         27
+#define KEY_DELETE      127   /* DEL */
 
 /* arrow keys (logical input layer) */
 #define KEY_UP          1001
