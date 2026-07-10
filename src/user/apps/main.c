@@ -67,7 +67,6 @@ void main(void)
     print("Press Ctrl+C to exit.\n");
     int i = 0;
 
-    return shell();
     while (1)
     {
         dial_tick(i++);
