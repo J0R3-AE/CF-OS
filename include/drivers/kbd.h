@@ -1,70 +1,40 @@
-#pragma once
+/*
+ * kbd.h - public interface of the keyboard input subsystem
+ */
 
-#include "libk/types.h"
+#ifndef KBD_H
+#define KBD_H
 
-/* -------------------------------------------------------------------------- */
-/* Keyboard driver                                                            */
-/* -------------------------------------------------------------------------- */
+#include <stddef.h>
+#include "scancode.h"
+
+/* ── History configuration ────────────────────────────────────────────────── */
+
+#define KBD_HISTORY_MAX   64
+#define KBD_HISTORY_LEN   256   /* max chars per history entry */
+
+/* ── Subsystem API ────────────────────────────────────────────────────────── */
 
 void kbd_init(void);
 void kbd_flush(void);
 
-void kbd_push(int key);
+/* Called from scancode_irq_handler – may be called in interrupt context. */
+void kbd_push(const struct key_event *ev);
 
-int kbd_try_getchar(void);
-int kbd_has_char(void);
+/* Non-blocking read: returns 0 if nothing available. */
+int  kbd_try_getchar(char *ch_out);
 
-/* Raw blocking read */
-int kbd_read(void *buf, usize len);
+/* Returns 1 if at least one character is waiting. */
+int  kbd_has_char(void);
 
-/* -------------------------------------------------------------------------- */
-/* Line editor                                                                */
-/* -------------------------------------------------------------------------- */
+/* Blocking reads – yield scheduler while waiting. */
+char        kbd_read(void);
+size_t      kbd_read_line(char *buf, size_t size);
 
-/*
- * Read a line of keyboard input into buf.
- *
- * - Always NUL terminates.
- * - Echoes characters.
- * - Supports Backspace/Delete.
- * - Stores the newline.
- * - block != 0 waits until a full line is entered.
- * - block == 0 returns immediately with whatever is available.
- */
-int kbd_read_line(char *buf, int count, int block);
+/* History */
+void        kbd_history_add(const char *line);
+const char *kbd_history_get(int offset);   /* 0 = most recent */
+int         kbd_history_count(void);
+void        kbd_history_clear(void);
 
-/* -------------------------------------------------------------------------- */
-/* History                                                                    */
-/* -------------------------------------------------------------------------- */
-
-#define KBD_HISTORY_DEPTH 16
-#define KBD_LINE_MAX      128
-
-typedef struct
-{
-    char entries[KBD_HISTORY_DEPTH][KBD_LINE_MAX];
-    int count;
-    int cursor; /* -1 while entering a new line */
-} kbd_history_t;
-
-void kbd_history_init(kbd_history_t *h);
-void kbd_history_push(kbd_history_t *h, const char *line);
-
-/* -------------------------------------------------------------------------- */
-/* Completion                                                                 */
-/* -------------------------------------------------------------------------- */
-
-typedef const char *(*kbd_complete_fn)(const char *prefix, int attempt);
-
-/*
-Future:
-
-const char *kbd_history_prev(kbd_history_t *h);
-const char *kbd_history_next(kbd_history_t *h);
-
-int kbd_read_line_edit(
-    char *buf,
-    int count,
-    kbd_history_t *history,
-    kbd_complete_fn complete);
-*/
+#endif /* KBD_H */

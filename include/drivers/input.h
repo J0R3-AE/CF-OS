@@ -1,7 +1,7 @@
 #ifndef INPUT_H
 #define INPUT_H
 
-#include "drivers/keyboard.h"
+#include "drivers/scancode.h"
 #include "drivers/tty.h"
 #include "input.h"
 

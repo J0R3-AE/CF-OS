@@ -6,10 +6,6 @@
 #include "arch/pic.h"
 #include "libk/printf.h"
 #include "libk/types.h"
-#include "drivers/keyboard.h"
-
-#include "libk/log.h"
-
 
 volatile u32 g_pit_ticks = 0;
 static volatile u32 g_pit_frequency = 0;
@@ -75,10 +71,6 @@ void pit_init(u32 hz)
 {
 
     pit_program(hz);
-
-    /* Hook IRQ0 -> PIT handler */
-
-    keyboard_init();
 
     /* Make sure timer IRQ is enabled */
     pic_unmask_irq(0);

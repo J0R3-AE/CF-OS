@@ -1,4 +1,4 @@
-#include "drivers/keyboard.h"
+#include "drivers/scancode.h"
 #include "drivers/tty.h"
 #include "drivers/input.h"
 #include "libk/string.h"
@@ -55,86 +55,86 @@ static void redraw_line(const char *prompt, const char *buf, int prev_len)
 
 int readline(const char *prompt, char *buf, int max)
 {
-    int len = 0;            // current line length
-    int cursor = 0;         // cursor index in buf
-    int last_drawn_len = 0; // length of buffer last time we redrew
+    int len = 0;
+    int cursor = 0;
+    int last_drawn_len = 0;
 
     buf[0] = '\0';
 
-    /* print initial prompt */
     printf("%s", prompt);
 
-    /* start browsing at "one past last" */
     history_pos = history_count;
 
     for (;;)
     {
-        int c;
-        while ((c = kbd_try_getchar()) == -1)
-        {
-        }
+        int c = kbd_read();   // blocking read
 
-        /* ---------- ARROW KEYS ---------- */
-
-        if (c == KEY_UP)
+        /* special key? */
+        if (c & 0x80)
         {
-            if (cursor > 0)
+            int key = c & 0x7F;
+
+            if (key == KEY_LEFT)
             {
-                cursor--;
-                TTY_putc('\b');
+                if (cursor > 0)
+                {
+                    cursor--;
+                    TTY_putc('\b');
+                }
+                continue;
             }
-            continue;
-        }
 
-        if (c == KEY_RIGHT)
-        {
-            if (cursor < len)
+            if (key == KEY_RIGHT)
             {
-                TTY_putc(buf[cursor]);
-                cursor++;
+                if (cursor < len)
+                {
+                    TTY_putc(buf[cursor]);
+                    cursor++;
+                }
+                continue;
             }
-            continue;
-        }
 
-        if (c == KEY_UP)
-        {
-            if (history_count > 0 && history_pos > 0)
+            if (key == KEY_UP)
             {
-                history_pos--;
-                strncpy(buf, history[history_pos], max - 1);
-                buf[max - 1] = '\0';
-                len = cursor = (int)strlen(buf);
+                if (history_count > 0 && history_pos > 0)
+                {
+                    history_pos--;
+                    strncpy(buf, history[history_pos], max - 1);
+                    buf[max - 1] = '\0';
+                    len = cursor = strlen(buf);
+
+                    redraw_line(prompt, buf, last_drawn_len);
+                    last_drawn_len = len;
+                }
+                continue;
+            }
+
+            if (key == KEY_DOWN)
+            {
+                if (history_pos < history_count - 1)
+                {
+                    history_pos++;
+                    strncpy(buf, history[history_pos], max - 1);
+                    buf[max - 1] = '\0';
+                    len = cursor = strlen(buf);
+                }
+                else
+                {
+                    history_pos = history_count;
+                    buf[0] = '\0';
+                    len = cursor = 0;
+                }
 
                 redraw_line(prompt, buf, last_drawn_len);
                 last_drawn_len = len;
+                continue;
             }
+
             continue;
         }
 
-        if (c == KEY_DOWN)
-        {
-            if (history_pos < history_count - 1)
-            {
-                history_pos++;
-                strncpy(buf, history[history_pos], max - 1);
-                buf[max - 1] = '\0';
-                len = cursor = (int)strlen(buf);
-            }
-            else
-            {
-                history_pos = history_count;
-                buf[0] = '\0';
-                len = cursor = 0;
-            }
-
-            redraw_line(prompt, buf, last_drawn_len);
-            last_drawn_len = len;
-            continue;
-        }
-
-        /* ---------- ENTER ---------- */
-
-        if (c == '\n' || c == '\r')
+        /* ENTER */
+        if (c == '\n')
         {
             TTY_putc('\n');
             buf[len] = '\0';
@@ -142,37 +142,31 @@ int readline(const char *prompt, char *buf, int max)
             return len;
         }
 
-        /* ---------- BACKSPACE ---------- */
-
+        /* BACKSPACE */
         if (c == '\b')
         {
             if (cursor > 0)
             {
-                /* shift left */
                 memmove(&buf[cursor - 1], &buf[cursor], len - cursor);
                 len--;
                 cursor--;
-
                 buf[len] = '\0';
 
                 redraw_line(prompt, buf, last_drawn_len);
                 last_drawn_len = len;
 
-                /* move cursor to correct spot */
                 int to_move = len - cursor;
-                for (int i = 0; i < to_move; i++)
+                while (to_move--)
                     TTY_putc('\b');
             }
             continue;
         }
 
-        /* ---------- PRINTABLE CHAR ---------- */
-
+        /* printable */
         if (c >= 32 && c < 127 && len < max - 1)
         {
-            /* shift right to make room */
             memmove(&buf[cursor + 1], &buf[cursor], len - cursor);
-            buf[cursor] = (char)c;
+            buf[cursor] = c;
             len++;
             cursor++;
 
@@ -181,9 +175,8 @@ int readline(const char *prompt, char *buf, int max)
             redraw_line(prompt, buf, last_drawn_len);
             last_drawn_len = len;
 
-            /* move cursor back to correct spot */
             int to_move = len - cursor;
-            for (int i = 0; i < to_move; i++)
+            while (to_move--)
                 TTY_putc('\b');
         }
     }

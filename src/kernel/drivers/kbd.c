@@ -1,253 +1,260 @@
+/*
+ * kbd.c - keyboard input subsystem
+ *
+ * Sits above scancode.c.  Maintains a ring buffer of pending characters,
+ * performs cooked line editing (backspace, delete, enter, escape), stores
+ * command history, and provides both blocking and non-blocking read helpers.
+ *
+ * The subsystem is completely independent of the PS/2 hardware; it only
+ * consumes struct key_event values produced by scancode.c.
+ *
+ * Blocking calls (kbd_read, kbd_read_line) assume the platform exposes a
+ * scheduler_yield() function that suspends the current task until the next
+ * interrupt fires.  Replace that call if your kernel uses a different
+ * mechanism.
+ */
+
 #include "drivers/kbd.h"
-#include "drivers/keyboard.h"
-#include "drivers/serial.h"
+#include "libk/string.h"
 #include "drivers/tty.h"
-#include "sched/sched.h"
-#include <stdbool.h>
 
-#define KBD_BUF_SIZE 256 /* power of two */
-#define KBD_LINE_MAX      256
-#define KBD_HISTORY_DEPTH 16
+/* ── Platform stub – replace with your kernel's scheduler yield ───────────── */
 
-static int kbd_buf[KBD_BUF_SIZE];
-static volatile unsigned int kbd_head = 0;
-static volatile unsigned int kbd_tail = 0;
+extern void ksched_yield(void);
 
-/* ----------------------------
-   ring buffer helpers
----------------------------- */
+/* ── TTY output stub – replace with your terminal write function ──────────── */
 
-static inline unsigned int next_index(unsigned int i)
+
+/* ── Ring-buffer configuration ────────────────────────────────────────────── */
+
+#define KBD_RING_SIZE 256   /* must be a power of two */
+#define KBD_RING_MASK (KBD_RING_SIZE - 1)
+
+/* ── Internal state ───────────────────────────────────────────────────────── */
+
+/* Character ring buffer shared between IRQ context (writer) and task (reader) */
+static volatile char    ring_buf[KBD_RING_SIZE];
+static volatile size_t  ring_head = 0;  /* next write position */
+static volatile size_t  ring_tail = 0;  /* next read  position */
+
+/* Command history */
+static char   history[KBD_HISTORY_MAX][KBD_HISTORY_LEN];
+static int    history_count = 0;
+static int    history_head  = 0;   /* index of the most recently added entry */
+
+/* ── Ring-buffer helpers ──────────────────────────────────────────────────── */
+
+static inline int ring_full(void)
 {
-    return (i + 1u) & (KBD_BUF_SIZE - 1u);
+    return ((ring_head + 1) & KBD_RING_MASK) == ring_tail;
 }
+
+static inline int ring_empty(void)
+{
+    return ring_head == ring_tail;
+}
+
+static inline void ring_push(char c)
+{
+    if (!ring_full()) {
+        ring_buf[ring_head] = c;
+        ring_head = (ring_head + 1) & KBD_RING_MASK;
+    }
+    /* If full we silently drop – never block in IRQ context. */
+}
+
+static inline char ring_pop(void)
+{
+    char c = ring_buf[ring_tail];
+    ring_tail = (ring_tail + 1) & KBD_RING_MASK;
+    return c;
+}
+
+/* ── Public API ───────────────────────────────────────────────────────────── */
 
 void kbd_init(void)
 {
-    kbd_head = 0;
-    kbd_tail = 0;
+    ring_head    = 0;
+    ring_tail    = 0;
+    history_count = 0;
+    history_head  = 0;
+    memset(history, 0, sizeof(history));
 }
 
 void kbd_flush(void)
 {
-    kbd_head = 0;
-    kbd_tail = 0;
+    ring_head = ring_tail = 0;
 }
+
+/*
+ * kbd_push() - called from scancode_irq_handler() (interrupt context).
+ *
+ * Only key-press events with a printable (or control) ASCII value are
+ * enqueued; releases and non-ASCII keys are silently ignored here.
+ */
+void kbd_push(const struct key_event *ev)
+{
+    if (!ev->pressed)
+        return;
+
+    if (ev->ascii != 0)
+    {
+        ring_push(ev->ascii);
+        return;
+    }
+
+    /* push special keys as encoded values */
+    ring_push((char)(0x80 | ev->keycode));
+}
+
 
 int kbd_has_char(void)
 {
-    return kbd_head != kbd_tail;
+    return !ring_empty();
 }
 
-static void echo_char(char c)
+int kbd_try_getchar(char *ch_out)
 {
-    TTY_putc(c);
-
-    if (serial_is_initialized())
-        i386SERIAL_write(c);
+    if (ring_empty())
+        return 0;
+    *ch_out = ring_pop();
+    return 1;
 }
 
-static void erase_last_glyph(void)
+/*
+ * kbd_read() - blocking single-character read.
+ *
+ * Yields the CPU until a character arrives in the ring buffer.
+ */
+char kbd_read(void)
 {
-    echo_char('\b');
-    echo_char(' ');
-    echo_char('\b');
-}
-/* ----------------------------
-   push from IRQ layer
-   (IMPORTANT: already ASCII / KEY_* translated here)
----------------------------- */
-
-void kbd_push(int key)
-{
-    if (key == KEY_NONE)
-        return;
-
-    unsigned int next = next_index(kbd_head);
-
-    /* drop newest if full */
-    if (next == kbd_tail)
-        return;
-
-    kbd_buf[kbd_head] = key;
-    kbd_head = next;
+    while (ring_empty())
+        //ksched_yield();
+    return ring_pop();
 }
 
-/* ----------------------------
-   non-blocking read
----------------------------- */
+/* ── Cooked line editing ──────────────────────────────────────────────────── */
 
-int kbd_try_getchar(void)
+/*
+ * kbd_read_line() - blocking cooked-mode line read.
+ *
+ * Reads characters into buf (up to size-1 bytes) until the user presses
+ * Enter.  Handles:
+ *   \b / DEL  back up and erase one character
+ *   \n / \r   end of line
+ *   ESC       discard the current line and start fresh
+ *
+ * The returned string is always NUL-terminated.  The trailing newline is
+ * NOT included in buf.  Returns the number of characters written (excluding
+ * NUL).
+ *
+ * The completed line is automatically added to the history.
+ */
+size_t kbd_read_line(char *buf, size_t size)
 {
-    if (kbd_head != kbd_tail)
-    {
-        int key = kbd_buf[kbd_tail];
-        kbd_tail = next_index(kbd_tail);
-        return key;
-    }
-
-    if (serial_is_initialized() && serial_received())
-    {
-        char c = serial_read_char();
-        if (c == '\r')
-            c = '\n';
-        TTY_putc(c);
-        return (unsigned char)c;
-    }
-
-    return -1;
-}
-
-/* ----------------------------
-   blocking read (line input)
----------------------------- */
-
-int kbd_read(void *buf, usize len)
-{
-    if (!buf || len == 0)
+    if (size == 0)
         return 0;
 
-    char *out = (char *)buf;
-    usize count = 0;
+    size_t len = 0;
 
-    while (count < len - 1)
-    {
-        int key = kbd_try_getchar();
+    for (;;) {
+        char c = kbd_read();
 
-        if (key < 0)
-        {
-            ksched_yield();
-            continue;
-        }
-
-        /* ENTER */
-        if (key == KEY_ENTER || key == '\n')
-        {
+        switch (c) {
+        case '\n':
+        case '\r':
             TTY_putc('\n');
-            out[count++] = '\n';
-            break;
-        }
+            buf[len] = '\0';
+            if (len > 0)
+                kbd_history_add(buf);
+            return len;
 
-        /* BACKSPACE */
-        if (key == KEY_BACKSPACE || key == '\b')
-        {
-            if (count > 0)
-            {
-                count--;
-
-                /* Erase character on screen */
+        case '\b':      /* Backspace */
+        case 0x7F:      /* DEL – also treated as backspace in cooked mode */
+            if (len > 0) {
+                len--;
+                /* Erase the character on the terminal: back, space, back. */
                 TTY_putc('\b');
                 TTY_putc(' ');
                 TTY_putc('\b');
             }
-
-            continue;
-        }
-
-        /* ESC */
-        if (key == KEY_ESC)
-        {
-            out[count++] = 27;
             break;
-        }
 
-        /* Arrow keys (ignore for now) */
-        if (key >= KEY_UP && key <= KEY_DOWN)
-        {
-            continue;
-        }
-
-        /* Printable ASCII */
-        if (key >= 32 && key < 127)
-        {
-            TTY_putc((char)key);      /* Echo to screen */
-            out[count++] = (char)key; /* Store in buffer */
-        }
-    }
-
-    out[count] = '\0';
-    return (int)count;
-}
-
-int kbd_read_line(char *buf, int count, int block)
-{
-    if (!buf || count <= 0)
-        return 0;
-
-    if (count == 1)
-    {
-        buf[0] = '\0';
-        return 0;
-    }
-
-    int nread = 0;
-
-    for (;;)
-    {
-        int key = kbd_try_getchar();
-
-        if (key < 0)
-        {
-            if (!block)
-                break;
-            ksched_yield();
-            continue;
-        }
-
-        if (key == KEY_BACKSPACE || key == KEY_DELETE)
-        {
-            if (nread > 0)
-            {
-                nread--;
-                erase_last_glyph();
+        case 0x1B:      /* ESC – discard line */
+            /* Visually clear the line. */
+            while (len > 0) {
+                TTY_putc('\b');
+                TTY_putc(' ');
+                TTY_putc('\b');
+                len--;
             }
-            continue;
-        }
+            break;
 
-        if (key == '\n')
-        {
-            if (nread < count - 1)
-                buf[nread++] = '\n';
-            echo_char('\n');
+        default:
+            if (c < 0x20)
+                break;  /* ignore other control characters */
+            if (len < size - 1) {
+                buf[len++] = c;
+                TTY_putc(c);     /* echo */
+            }
+            /* If the buffer is full we silently drop additional input. */
             break;
         }
+    }
+}
 
-        if (nread >= count - 1)
-            continue; /* buffer full: drop until newline or backspace */
+/* ── Command history ──────────────────────────────────────────────────────── */
 
-        buf[nread++] = (char)key;
-        echo_char((char)key);
+/*
+ * History is stored as a circular array of fixed-size strings.
+ * history_head always points to the slot that will receive the NEXT entry.
+ * history_count tracks how many valid entries exist (capped at
+ * KBD_HISTORY_MAX).
+ */
+
+void kbd_history_add(const char *line)
+{
+    if (!line || *line == '\0')
+        return;
+
+    /* Don't add a duplicate of the most recent entry. */
+    if (history_count > 0) {
+        int prev = (history_head - 1 + KBD_HISTORY_MAX) % KBD_HISTORY_MAX;
+        if (strncmp(history[prev], line, KBD_HISTORY_LEN - 1) == 0)
+            return;
     }
 
-    buf[nread] = '\0';
-    return nread;
+    strncpy(history[history_head], line, KBD_HISTORY_LEN - 1);
+    history[history_head][KBD_HISTORY_LEN - 1] = '\0';
+
+    history_head = (history_head + 1) % KBD_HISTORY_MAX;
+    if (history_count < KBD_HISTORY_MAX)
+        history_count++;
 }
 
-void kbd_history_init(kbd_history_t *h)
+/*
+ * kbd_history_get() - retrieve a past command.
+ *
+ * offset 0 = most recent entry, 1 = one before that, etc.
+ * Returns NULL if offset is out of range.
+ */
+const char *kbd_history_get(int offset)
 {
-    if (!h)
-        return;
-    h->count = 0;
-    h->cursor = -1;
-    for (int i = 0; i < KBD_HISTORY_DEPTH; i++)
-        h->entries[i][0] = '\0';
+    if (offset < 0 || offset >= history_count)
+        return NULL;
+
+    int idx = (history_head - 1 - offset + KBD_HISTORY_MAX * 2) % KBD_HISTORY_MAX;
+    return history[idx];
 }
 
-void kbd_history_push(kbd_history_t *h, const char *line)
+int kbd_history_count(void)
 {
-    if (!h || !line)
-        return;
+    return history_count;
+}
 
-    /* drop exact duplicate of the most recent entry */
-    if (h->count > 0 && strncmp(h->entries[h->count - 1], line, KBD_LINE_MAX) == 0)
-        return;
-
-    int slot = h->count % KBD_HISTORY_DEPTH;
-    strncpy(h->entries[slot], line, KBD_LINE_MAX - 1);
-    h->entries[slot][KBD_LINE_MAX - 1] = '\0';
-
-    if (h->count < KBD_HISTORY_DEPTH)
-        h->count++;
-
-    h->cursor = -1;
+void kbd_history_clear(void)
+{
+    history_count = 0;
+    history_head  = 0;
+    memset(history, 0, sizeof(history));
 }

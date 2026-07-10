@@ -201,7 +201,7 @@ void syscall_handler(registers_t *regs)
         /* stdin: cooked, non-blocking line read (partial line OK) */
         if (fd == 0)
         {
-            regs->eax = kbd_read_line(buf, count, 0);
+            regs->eax = kbd_read_line(buf, count);
             break;
         }
 
@@ -298,8 +298,10 @@ void syscall_handler(registers_t *regs)
             break;
         }
 
-        /* blocking line read: echoes, honors backspace, NUL-terminates */
-        regs->eax = kbd_read_line(buf, count, 1);
+        /* blocking cooked line read: waits for ENTER, echoes, handles backspace */
+        size_t n = kbd_read_line(buf, (size_t)count);
+
+        regs->eax = (int)n;
         break;
     }
 

@@ -24,7 +24,7 @@
 #include "drivers/kbd.h"
 #include "drivers/ata.h"
 #include "drivers/framebuffer.h"
-#include "drivers/keyboard.h"
+#include "drivers/scancode.h"
 #include "drivers/serial.h"
 
 #include "fs/vfs.h"
@@ -74,7 +74,9 @@ void kernel_init(void)
     KLOG_LOG("IDT initialized");
     register_interrupt_handler(32, pit_handler);
     KLOG_LOG("PIT handler registered");
-    register_interrupt_handler(33, keyboard_irq_handler);
+    scancode_init();
+    kbd_init();
+    register_interrupt_handler(33, scancode_irq_handler);
     KLOG_LOG("Keyboard handler registered");
 
     pit_init(1); // 1MHz for now, we'll reprogram it later in sched_init
