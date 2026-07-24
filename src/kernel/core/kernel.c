@@ -56,18 +56,25 @@ static uint8_t kernel_stack[4096];
 
 extern Link g_fs_types; /* intrusive FS registry list head */
 extern void shell_run(void);
+extern void arch_detect(uint32_t *arch, uint32_t *isa);
+extern void print_cpu_features(uint32_t arch, uint32_t f);
 
 multiboot_info_t *g_mbi = NULL;
 
 void kmain(u32 magic, multiboot_info_t *mbi)
 {
     (void)magic;
+    uint32_t arch = 0;
+    uint32_t isa = 0;
 
     g_mbi = mbi;
     printf("Kernel starting...");
 
     /* Early devices */
-    i386SERIAL_init();
+    serial_init(0x3F8);
+
+    arch_detect(&arch, &isa);
+    print_cpu_features(arch, isa);
 
     vbe_mode_info_t *vbe = (vbe_mode_info_t *)(uintptr_t)mbi->vbe_mode_info;
 
@@ -99,12 +106,12 @@ void kmain(u32 magic, multiboot_info_t *mbi)
 
     pic_init();
     KLOG_LOG("PIC initialized");
-    
+
     idt_init();
     KLOG_LOG("IDT initialized");
     register_interrupt_handler(32, pit_handler);
     KLOG_LOG("PIT handler registered");
-    
+
     keyboard_init();
     register_interrupt_handler(33, ps2_irq_keyboard);
     KLOG_LOG("Keyboard handler registered");
@@ -159,7 +166,9 @@ void kmain(u32 magic, multiboot_info_t *mbi)
 
     sched_init();
     KLOG_LOG("Scheduler initialized");
-    
+
+    TTY_clear();
+
     kernel_init();
 
     for (;;)

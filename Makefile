@@ -125,7 +125,7 @@ kernel.iso: $(KERNEL) $(USER_TAR)
 	@echo "Built ISO image: $@"
 
 run: kernel.iso
-	qemu-system-i386 -cdrom kernel.iso -m 512M -serial stdio -display gtk
+	qemu-system-x86_64 -cdrom kernel.iso -m 512M -serial stdio -display gtk
 
 debug-path:
 	@echo "Current PATH inside make is:"

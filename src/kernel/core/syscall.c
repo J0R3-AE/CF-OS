@@ -15,6 +15,7 @@
 
 #include "kernel/drivers/tty.h"
 #include "kernel/drivers/line.h"
+#include "kernel/drivers/serial.h"
 
 #include "kernel/sched/sched.h"
 #include "kernel/proc/proc.h"
@@ -170,7 +171,7 @@ void syscall_handler(registers_t *regs)
             for (int i = 0; i < count; i++)
             {
                 TTY_putc(buf[i]);
-                i386SERIAL_write(buf[i]);
+                serial_write_char(buf[i]);
                 written++;
             }
             regs->eax = written;
@@ -279,7 +280,7 @@ void syscall_handler(registers_t *regs)
         while (*s)
         {
             TTY_putc(*s);
-            i386SERIAL_write(*s);
+            serial_write_char(*s);
             s++;
         }
 

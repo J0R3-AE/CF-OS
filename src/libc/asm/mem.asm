@@ -2,7 +2,7 @@
 ; NASM 32-bit freestanding memory helpers
 ; cdecl calling convention
 
-BITS 32
+[BITS 32]
 
 SECTION .text
 

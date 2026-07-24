@@ -151,5 +151,6 @@ void kernel_init(void)
     }
 
     KLOG_LOG("Kernel initialization complete, starting scheduler...");
+    TTY_clear();
     sched_start();
 }
