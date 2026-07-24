@@ -1,7 +1,8 @@
-#include "net/net.h"
-#include "mm/heap.h"
-#include "libk/string.h"
-#include "libk/log.h"
+#include "kernel/net/net.h"
+#include "kernel/mm/heap.h"
+#include "libc/string.h"
+#include "libc/mem.h"
+#include "libc/log.h"
 
 static void net_copy_name(char *dst, const char *src)
 {

@@ -1,9 +1,9 @@
-#include "fs/ramfs.h"
-#include "mm/heap.h"
-#include "libk/string.h"
-#include "libk/types.h"
-#include "libk/mem.h"
-#include "libk/errno.h"
+#include "kernel/fs/ramfs.h"
+#include "kernel/mm/heap.h"
+#include "libc/string.h"
+#include "libc/types.h"
+#include "libc/mem.h"
+#include "libc/errno.h"
 
 static int ramfs_mount_fn(struct mount *mp, const char *opts);
 static int ramfs_unmount_fn(struct mount *mp);

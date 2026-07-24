@@ -1,7 +1,7 @@
-#include "net/net.h"
-#include "mm/heap.h"
-#include "libk/log.h"
-#include "libk/mem.h"
+#include "kernel/net/net.h"
+#include "kernel/mm/heap.h"
+#include "libc/log.h"
+#include "libc/mem.h"
 
 static Link g_net_sockets;
 static int g_next_sock_fd = 1;

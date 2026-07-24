@@ -1,7 +1,7 @@
-#include "fs/fd.h"
-#include "fs/vfs.h"    /* for vfs_close / file struct */
-#include "libk/mem.h"
-#include "libk/string.h"
+#include "kernel/fs/fd.h"
+#include "kernel/fs/vfs.h"    /* for vfs_close / file struct */
+#include "libc/mem.h"
+#include "libc/string.h"
 
 /* If you don't have kmalloc/kfree, define simple wrappers or use a static pool.
  * For now we assume kmalloc/kfree exist.

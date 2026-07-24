@@ -1,5 +1,5 @@
-#include "net/net.h"
-#include "libk/log.h"
+#include "kernel/net/net.h"
+#include "libc/log.h"
 
 int e1000_probe(void)
 {

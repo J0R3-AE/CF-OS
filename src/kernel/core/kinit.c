@@ -1,43 +1,42 @@
-#include "libk/string.h"
-#include "libk/mem.h"
-#include "libk/log.h"
-#include "libk/types.h"
+#include "libc/string.h"
+#include "libc/mem.h"
+#include "libc/log.h"
+#include "libc/types.h"
 
-#include "arch/multiboot.h"
-#include "arch/io.h"
-#include "arch/gdt.h"
-#include "arch/tss.h"
-#include "arch/idt.h"
-#include "arch/pic.h"
-#include "arch/pit.h"
+#include "kernel/arch/multiboot.h"
+#include "kernel/arch/io.h"
+#include "kernel/arch/gdt.h"
+#include "kernel/arch/tss.h"
+#include "kernel/arch/idt.h"
+#include "kernel/arch/pic.h"
+#include "kernel/arch/pit.h"
 
-#include "mm/vmm.h"
-#include "mm/pmm.h"
-#include "mm/heap.h"
-#include "mm/paging.h"
+#include "kernel/mm/vmm.h"
+#include "kernel/mm/pmm.h"
+#include "kernel/mm/heap.h"
+#include "kernel/mm/paging.h"
 
-#include "ipc/ipc.h"
-#include "net/net.h"
-#include "net/loopback.h"
+#include "kernel/ipc/ipc.h"
+#include "kernel/net/net.h"
+#include "kernel/net/loopback.h"
 
-#include "drivers/tty.h"
-#include "drivers/kbd.h"
-#include "drivers/ata.h"
-#include "drivers/framebuffer.h"
-#include "drivers/scancode.h"
-#include "drivers/serial.h"
+#include "kernel/drivers/tty.h"
+#include "kernel/drivers/ata.h"
+#include "kernel/drivers/framebuffer.h"
+#include "kernel/drivers/serial.h"
 
-#include "fs/vfs.h"
-#include "fs/ramfs.h"
-#include "fs/mount.h"
-#include "fs/fat.h"
-#include "fs/ext2.h"
-#include "fs/install.h"
+#include "kernel/fs/vfs.h"
+#include "kernel/fs/ramfs.h"
+#include "kernel/fs/mount.h"
+#include "kernel/fs/fat.h"
+#include "kernel/fs/ext2.h"
+#include "kernel/fs/install.h"
+
+#include "kernel/sched/sched.h"
+#include "kernel/proc/proc.h"
 
 #include "../user/init_elf.h"
 #include "../user/init_tar.h"
-#include "sched/sched.h"
-#include "proc/proc.h"
 
 /* serial input thread (feeds COM1 into kbd buffer when -serial stdio used) */
 extern void serial_input_thread(void *arg);
@@ -58,77 +57,6 @@ extern int exec_elf_image(const void *image, u32 size);
 
 void kernel_init(void)
 {
-    io_disableinterrupts();
-    KLOG_LOG("Kernel initializing...");
-
-    gdt_init();
-    KLOG_LOG("GDT initialized");
-
-    tss_init((uint32_t)(kernel_stack + sizeof(kernel_stack)));
-    KLOG_LOG("TSS initialized");
-
-    pic_init();
-    KLOG_LOG("PIC initialized");
-    
-    idt_init();
-    KLOG_LOG("IDT initialized");
-    register_interrupt_handler(32, pit_handler);
-    KLOG_LOG("PIT handler registered");
-    scancode_init();
-    kbd_init();
-    register_interrupt_handler(33, scancode_irq_handler);
-    KLOG_LOG("Keyboard handler registered");
-
-    pit_init(1); // 1MHz for now, we'll reprogram it later in sched_init
-    KLOG_LOG("PIT initialized");
-
-    pmm_init(TOTAL_RAM, KERNEL_END);
-    KLOG_LOG("PMM initialized with %u bytes total RAM", TOTAL_RAM);
-
-    heap_init(HEAP_START, HEAP_MAX, NULL);
-    KLOG_LOG("Heap initialized from 0x%x to 0x%x", HEAP_START, HEAP_MAX);
-
-    ipc_init();
-    KLOG_LOG("IPC initialized");
-
-    net_init();
-    KLOG_LOG("Network stack initialized");
-
-    net_loopback_init();
-    KLOG_LOG("Loopback network interface initialized");
-
-    paging_init();
-    KLOG_LOG("Paging initialized");
-
-    serial_init(COM1);
-    KLOG_LOG("Serial port initialized on COM1");
-
-    io_enableinterrupts();
-    KLOG_LOG("Interrupts enabled");
-
-    ata_identify();
-    KLOG_LOG("ATA devices identified");
-
-    ListInit(&g_fs_types);
-    KLOG_INFO("Filesystem registry initialized");
-
-    ramfs_init();
-    KLOG_LOG("RAMFS initialized");
-
-    mount_init();
-    KLOG_LOG("Mount subsystem initialized");
-
-    fat_init();
-    KLOG_LOG("FAT filesystem support initialized");
-
-    ext2_init();
-    KLOG_LOG("EXT2 filesystem support initialized");
-
-    proc_init();
-    KLOG_LOG("Process subsystem initialized");
-
-    sched_init();
-    KLOG_LOG("Scheduler initialized");
 
     /* Try to mount disk root first (installed OS) */
     int disk_mounted = 0;

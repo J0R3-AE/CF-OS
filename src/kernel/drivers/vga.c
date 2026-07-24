@@ -1,4 +1,4 @@
-#include "drivers/vga.h"
+#include "kernel/drivers/vga.h"
 
 #define VGA_MEMORY ((volatile uint16_t *)0xB8000)
 

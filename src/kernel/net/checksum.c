@@ -1,5 +1,5 @@
-#include "net/net.h"
-#include "libk/mem.h"
+#include "kernel/net/net.h"
+#include "libc/mem.h"
 
 u16 net_checksum(const void *data, usize len)
 {

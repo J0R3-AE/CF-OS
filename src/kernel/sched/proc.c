@@ -1,9 +1,9 @@
-#include "proc/proc.h"
-#include "mm/heap.h"
-#include "mm/paging.h"
-#include "libk/mem.h"
-#include "libk/errno.h"
-#include "libk/log.h"
+#include "kernel/proc/proc.h"
+#include "kernel/mm/heap.h"
+#include "kernel/mm/paging.h"
+#include "libc/mem.h"
+#include "libc/errno.h"
+#include "libc/log.h"
 
 extern Thread *g_current;
 extern struct page_directory *kernel_pd;

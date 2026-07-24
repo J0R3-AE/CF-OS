@@ -1,18 +1,24 @@
 #include "syscall.h"
-#include "proc/proc.h"
-#include "fs/vfs.h"
-#include "fs/fd.h"
-#include "sched/sched.h"
-#include "drivers/tty.h"
-#include "drivers/kbd.h"
-#include "drivers/serial.h"
-#include "arch/io.h"
-#include "libk/log.h"
-#include "libk/errno.h"
-#include "libk/string.h"
-#include "libk/types.h"
-#include "libk/dirent.h"
-#include "arch/idt.h"
+
+#include "libc/string.h"
+#include "libc/mem.h"
+#include "libc/log.h"
+#include "libc/types.h"
+#include "libc/errno.h"
+#include "libc/dirent.h"
+
+#include "kernel/arch/idt.h"
+#include "kernel/arch/io.h"
+
+#include "kernel/fs/fd.h"
+#include "kernel/fs/vfs.h"
+
+#include "kernel/drivers/tty.h"
+#include "kernel/drivers/line.h"
+
+#include "kernel/sched/sched.h"
+#include "kernel/proc/proc.h"
+
 
 /* TODO: move per‑process fd tables into process_t */
 static fd_table_t g_fd_tables[64];
@@ -201,7 +207,7 @@ void syscall_handler(registers_t *regs)
         /* stdin: cooked, non-blocking line read (partial line OK) */
         if (fd == 0)
         {
-            regs->eax = kbd_read_line(buf, count);
+            //regs->eax = line_get_buffer(buf, count);
             break;
         }
 
@@ -251,7 +257,7 @@ void syscall_handler(registers_t *regs)
         strncpy(out->name, name, sizeof(out->name));
         out->name[sizeof(out->name) - 1] = '\0';
         out->type = type;
-        out->lenght = strlen(name);
+        out->length = strlen(name);
 
         regs->eax = ERR_SUCCESS;
         break;
@@ -299,8 +305,9 @@ void syscall_handler(registers_t *regs)
         }
 
         /* blocking cooked line read: waits for ENTER, echoes, handles backspace */
-        size_t n = kbd_read_line(buf, (size_t)count);
+        //size_t n = line_get_buffer();(buf, (size_t)count);
 
+        size_t n = 0;
         regs->eax = (int)n;
         break;
     }

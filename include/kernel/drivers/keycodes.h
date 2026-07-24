@@ -1,0 +1,44 @@
+#ifndef KEYCODES_H
+#define KEYCODES_H
+
+#include <stdint.h>
+
+typedef enum {
+    KEY_NONE = 0,
+
+    KEY_ESC,
+    KEY_1, KEY_2, KEY_3, KEY_4, KEY_5,
+    KEY_6, KEY_7, KEY_8, KEY_9, KEY_0,
+
+    KEY_Q, KEY_W, KEY_E, KEY_R, KEY_T,
+    KEY_Y, KEY_U, KEY_I, KEY_O, KEY_P,
+
+    KEY_A, KEY_S, KEY_D, KEY_F, KEY_G,
+    KEY_H, KEY_J, KEY_K, KEY_L,
+
+    KEY_Z, KEY_X, KEY_C, KEY_V, KEY_B,
+    KEY_N, KEY_M,
+
+    KEY_ENTER,
+    KEY_BACKSPACE,
+    KEY_TAB,
+    KEY_SPACE,
+    KEY_LSHIFT,
+    KEY_RSHIFT,
+    KEY_LCTRL,
+    KEY_LALT,
+    KEY_CAPSLOCK,
+
+    KEY_F1, KEY_F2, KEY_F3, KEY_F4,
+    KEY_F5, KEY_F6, KEY_F7, KEY_F8,
+    KEY_F9, KEY_F10, KEY_F11, KEY_F12,
+
+    KEY_UP,
+    KEY_DOWN,
+    KEY_LEFT,
+    KEY_RIGHT,
+
+    KEY_MAX
+} keycode_t;
+
+#endif

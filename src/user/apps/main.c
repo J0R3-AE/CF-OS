@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 #include "syscall.h"
-#include "libk/string.h"
+#include "libc/string.h"
 
 static void dial_tick(int i)
 {

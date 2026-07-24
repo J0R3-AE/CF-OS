@@ -1,11 +1,11 @@
 /** @author JPEG */
 
-#include "arch/pit.h"
+#include "kernel/arch/pit.h"
 
-#include "arch/io.h"
-#include "arch/pic.h"
-#include "libk/printf.h"
-#include "libk/types.h"
+#include "kernel/arch/io.h"
+#include "kernel/arch/pic.h"
+#include "libc/printf.h"
+#include "libc/types.h"
 
 volatile u32 g_pit_ticks = 0;
 static volatile u32 g_pit_frequency = 0;
@@ -49,9 +49,9 @@ static void pit_program(u32 hz)
         PIT_OCW_BINCOUNT_BINARY
     );
 
-    io_Write8(PIT_REG_COMMAND, command);
-    io_Write8(PIT_REG_COUNTER0, (u8)(divisor & 0xFF));
-    io_Write8(PIT_REG_COUNTER0, (u8)((divisor >> 8) & 0xFF));
+    out8(PIT_REG_COMMAND, command);
+    out8(PIT_REG_COUNTER0, (u8)(divisor & 0xFF));
+    out8(PIT_REG_COUNTER0, (u8)((divisor >> 8) & 0xFF));
 }
 
 /* Your old-style IRQ0 handler */

@@ -1,3 +1,4 @@
+export PATH := $(PATH)
 # === Tools ===
 CC	  := i686-elf-gcc
 CXX	  := i686-elf-g++
@@ -124,7 +125,13 @@ kernel.iso: $(KERNEL) $(USER_TAR)
 	@echo "Built ISO image: $@"
 
 run: kernel.iso
-	$(QEMU) -cdrom $< -m 512M -serial stdio
+	qemu-system-i386 -cdrom kernel.iso -m 512M -serial stdio -display gtk
+
+debug-path:
+	@echo "Current PATH inside make is:"
+	@echo $(PATH)
+	@which i686-elf-tools || echo "i686-elf-gcc NOT FOUND IN MAKE PATH"
+
 
 clean:
 	rm -rf $(BUILD)

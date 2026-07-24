@@ -1,8 +1,8 @@
-#include "ipc/ipc.h"
+#include "kernel/ipc/ipc.h"
 
-#include "mm/heap.h"
-#include "libk/string.h"
-#include "libk/mem.h"
+#include "kernel/mm/heap.h"
+#include "libc/string.h"
+#include "libc/mem.h"
 
 typedef struct ipc_service_node
 {

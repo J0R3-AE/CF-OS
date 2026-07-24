@@ -1,11 +1,11 @@
-#include "fs/ext2.h"
-#include "libk/string.h"
-#include "libk/mem.h"
-#include "libk/math.h"
-#include "libk/printf.h"
-#include "libk/log.h"
+#include "kernel/fs/ext2.h"
+#include "libc/string.h"
+#include "libc/mem.h"
+#include "libc/math.h"
+#include "libc/printf.h"
+#include "libc/log.h"
 
-#include "mm/heap.h"
+#include "kernel/mm/heap.h"
 
 extern struct blockdev *blockdev_open(const char *name);
 // --------------------------------

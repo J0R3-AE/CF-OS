@@ -1,20 +1,20 @@
-#include "elf/elf.h"
-#include "fs/vfs.h"
-#include "mm/paging.h"
-#include "mm/pmm.h"
-#include "mm/heap.h"
-#include "libk/string.h"
-#include "libk/mem.h"
-#include "libk/math.h"
-#include "libk/log.h"
+#include "kernel//binfmt/elf.h"
+#include "kernel//fs/vfs.h"
+#include "kernel//mm/paging.h"
+#include "kernel//mm/pmm.h"
+#include "kernel//mm/heap.h"
+#include "libc/string.h"
+#include "libc/mem.h"
+#include "libc/math.h"
+#include "libc/log.h"
 
 /*
  * ELF32 loader for MiniOS
  *
  * Notes:
- * - This loader expects a temporary kernel mapping helper for physical frames.
+ * - This loader expects a temporary kernel/ mapping helper for physical frames.
  * - If your paging layer uses a different name, swap these externs.
- * - The loader reads segment data into a kernel buffer first, then copies it
+ * - The loader reads segment data into a kernel/ buffer first, then copies it
  *   into mapped pages. That keeps the page-loading logic simple and safe.
  */
 
@@ -164,7 +164,7 @@ static int load_segment(struct page_directory *pd,
     }
 
     /*
-     * Read segment file bytes into a kernel buffer, then copy into the mapped pages.
+     * Read segment file bytes into a kernel/ buffer, then copy into the mapped pages.
      */
     u8 *seg_data = NULL;
     if (seg_filesz > 0)

@@ -1,7 +1,7 @@
-#include "arch/tss.h"
-#include "arch/gdt.h"
-#include "libk/log.h"
-#include "libk/mem.h"
+#include "kernel/arch/tss.h"
+#include "kernel/arch/gdt.h"
+#include "libc/log.h"
+#include "libc/mem.h"
 
 extern void i386GDT_flush(u32);
 extern void tss_flush(uint16_t sel);

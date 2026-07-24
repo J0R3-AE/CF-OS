@@ -1,8 +1,8 @@
-#include "libk/log.h"
-#include "arch/io.h"
-#include "drivers/tty.h"
-#include "drivers/serial.h"
-#include "libk/printf.h"
+#include "libc/log.h"
+#include "kernel/arch/io.h"
+#include "kernel/drivers/tty.h"
+#include "kernel/drivers/serial.h"
+#include "libc/printf.h"
 
 #include <stdarg.h>
 #include <stddef.h>

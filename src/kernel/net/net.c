@@ -1,9 +1,9 @@
-#include "net/net.h"
+#include "kernel/net/net.h"
 
-#include "mm/heap.h"
-#include "libk/string.h"
-#include "libk/mem.h"
-#include "libk/log.h"
+#include "kernel/mm/heap.h"
+#include "libc/string.h"
+#include "libc/mem.h"
+#include "libc/log.h"
 
 static Link g_net_devices;
 static int g_net_ready = 0;

@@ -1,5 +1,5 @@
-#include "drivers/serial.h"
-#include "arch/io.h"
+#include "kernel/drivers/serial.h"
+#include "kernel/arch/io.h"
 
 /*
  * Replace with your own I/O header if available.
@@ -14,12 +14,12 @@ static bool g_initialized = false;
 
 int serial_received(void)
 {
-    return io_Read8(SERIAL_LINE_STATUS(g_serial_port)) & 1;
+    return in8(SERIAL_LINE_STATUS(g_serial_port)) & 1;
 }
 
 int serial_transmit_empty(void)
 {
-    return io_Read8(SERIAL_LINE_STATUS(g_serial_port)) & 0x20;
+    return in8(SERIAL_LINE_STATUS(g_serial_port)) & 0x20;
 }
 
 static void serial_wait_tx(void)
@@ -45,40 +45,40 @@ bool serial_init(u16 port)
     g_serial_port = port;
 
     /* Disable interrupts */
-    io_Write8(SERIAL_INTERRUPT(port), 0x00);
+    out8(SERIAL_INTERRUPT(port), 0x00);
 
     /* Enable DLAB */
-    io_Write8(SERIAL_LINE(port), 0x80);
+    out8(SERIAL_LINE(port), 0x80);
 
     /*
      * Baud rate divisor = 3
      * 115200 / 3 = 38400 baud
      */
-    io_Write8(SERIAL_DIVISOR_LOW(port), 0x03);
-    io_Write8(SERIAL_DIVISOR_HIGH(port), 0x00);
+    out8(SERIAL_DIVISOR_LOW(port), 0x03);
+    out8(SERIAL_DIVISOR_HIGH(port), 0x00);
 
     /* 8 bits, no parity, one stop bit */
-    io_Write8(SERIAL_LINE(port), 0x03);
+    out8(SERIAL_LINE(port), 0x03);
 
     /* Enable FIFO */
-    io_Write8(SERIAL_FIFO(port), 0xC7);
+    out8(SERIAL_FIFO(port), 0xC7);
 
     /* IRQs enabled, RTS/DSR set */
-    io_Write8(SERIAL_MODEM(port), 0x0B);
+    out8(SERIAL_MODEM(port), 0x0B);
 
     /* Loopback mode for testing */
-    io_Write8(SERIAL_MODEM(port), 0x1E);
+    out8(SERIAL_MODEM(port), 0x1E);
 
-    io_Write8(SERIAL_DATA(port), 0xAE);
+    out8(SERIAL_DATA(port), 0xAE);
 
-    if (io_Read8(SERIAL_DATA(port)) != 0xAE)
+    if (in8(SERIAL_DATA(port)) != 0xAE)
     {
         g_initialized = false;
         return false;
     }
 
     /* Normal mode */
-    io_Write8(SERIAL_MODEM(port), 0x0F);
+    out8(SERIAL_MODEM(port), 0x0F);
 
     g_initialized = true;
     return true;
@@ -113,7 +113,7 @@ void serial_write_char(char c)
         return;
 
     serial_wait_tx();
-    io_Write8(SERIAL_DATA(g_serial_port), (u8)c);
+    out8(SERIAL_DATA(g_serial_port), (u8)c);
 }
 
 void serial_write(const char *str)
@@ -145,7 +145,7 @@ void serial_clear(void)
 char serial_read_char(void)
 {
     serial_wait_rx();
-    return (char)io_Read8(SERIAL_DATA(g_serial_port));
+    return (char)in8(SERIAL_DATA(g_serial_port));
 }
 
 /* -------------------------------------------------------------------------- */

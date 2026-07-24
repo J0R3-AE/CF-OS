@@ -1,4 +1,4 @@
-#include "sched/sched.h"
+#include "kernel/sched/sched.h"
 
 Link g_run_queue;
 

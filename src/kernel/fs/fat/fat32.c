@@ -1,4 +1,4 @@
-#include "fs/fat.h"
+#include "kernel/fs/fat.h"
 
 static u32 fat32_get(struct fat_super *sb, u32 index)
 {

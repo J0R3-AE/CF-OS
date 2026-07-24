@@ -1,11 +1,12 @@
 /* file: src/pmm.c */
 
-#include "mm/pmm.h"
+#include "kernel/mm/pmm.h"
 
-#include "libk/errno.h"
-#include "libk/string.h"
-#include "libk/mem.h"
-#include "libk/types.h"
+#include "libc/errno.h"
+#include "libc/string.h"
+#include "libc/mem.h"
+#include "libc/math.h"
+#include "libc/types.h"
 
 static u32 *frame_bitmap = NULL; /* bitset: 1 = used, 0 = free */
 static u32 total_frames_count = 0;

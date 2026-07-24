@@ -1,4 +1,4 @@
-#include "fs/vfs.h"
+#include "kernel/fs/vfs.h"
 
 void file_ref(struct file *f)
 {

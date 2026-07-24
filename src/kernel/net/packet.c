@@ -1,6 +1,6 @@
-#include "net/net.h"
-#include "mm/heap.h"
-#include "libk/mem.h"
+#include "kernel/net/net.h"
+#include "kernel/mm/heap.h"
+#include "libc/mem.h"
 
 net_packet_t *net_packet_clone(const net_packet_t *pkt)
 {

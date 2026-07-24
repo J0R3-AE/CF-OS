@@ -1,7 +1,7 @@
-#include "drivers/console.h"
-#include "drivers/framebuffer.h"
+#include "kernel/drivers/console.h"
+#include "kernel/drivers/framebuffer.h"
 #include "gui/font.h"
-#include "libk/mem.h"
+#include "libc/mem.h"
 #include <stdint.h>
 
 #define FW 8

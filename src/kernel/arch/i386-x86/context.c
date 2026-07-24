@@ -1,7 +1,7 @@
 /** @brief peen */
 
-#include "arch/context.h"
-#include "libk/log.h"
+#include "kernel/arch/context.h"
+#include "libc/log.h"
 
 extern void kthread_entry(void);
 

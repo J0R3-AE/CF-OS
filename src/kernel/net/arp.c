@@ -1,6 +1,6 @@
-#include "net/net.h"
-#include "libk/log.h"
-#include "libk/mem.h"
+#include "kernel/net/net.h"
+#include "libc/log.h"
+#include "libc/mem.h"
 
 #define NET_ARP_CACHE_SIZE 16
 

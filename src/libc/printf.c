@@ -1,9 +1,10 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
-#include "libk/printf.h"
-#include "drivers/tty.h"
-#include "arch/io.h"
+#include "libc/printf.h"
+#include "kernel/drivers/tty.h"
+#include "kernel/drivers/serial.h"
+#include "kernel/arch/io.h"
 
 static void out_char(char **buf, usize *remaining, char c)
 {

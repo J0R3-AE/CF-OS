@@ -3,14 +3,14 @@
  * @brief Disk install and bootstrap utilities.
  */
 
-#include "fs/install.h"
-#include "fs/mount.h"
-#include "fs/vfs.h"
-#include "fs/blockdev.h"
-#include "drivers/ata.h"
-#include "libk/log.h"
-#include "libk/string.h"
-#include "libk/mem.h"
+#include "kernel/fs/install.h"
+#include "kernel/fs/mount.h"
+#include "kernel/fs/vfs.h"
+#include "kernel/fs/blockdev.h"
+#include "kernel/drivers/ata.h"
+#include "libc/log.h"
+#include "libc/string.h"
+#include "libc/mem.h"
 
 extern struct fs_type ramfs_type;
 extern struct fs_type fat_type;

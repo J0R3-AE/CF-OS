@@ -1,10 +1,10 @@
-#include "mm/paging.h"
-#include "mm/heap.h"
-#include "mm/pmm.h"
-#include "libk/types.h"
-#include "libk/string.h"
-#include "libk/mem.h"
-#include "libk/math.h"
+#include "kernel/mm/paging.h"
+#include "kernel/mm/heap.h"
+#include "kernel/mm/pmm.h"
+#include "libc/types.h"
+#include "libc/string.h"
+#include "libc/mem.h"
+#include "libc/math.h"
 
 #define TEMP_MAP_VADDR 0xFEE00000
 

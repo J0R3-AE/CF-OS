@@ -1,5 +1,5 @@
-#include "arch/atomic.h"
-#include "libk/log.h"
+#include "kernel/arch/atomic.h"
+#include "libc/log.h"
 
 u32 atomic_exchange(volatile u32 *ptr, u32 val)
 {

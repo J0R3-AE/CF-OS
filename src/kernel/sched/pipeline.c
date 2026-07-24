@@ -1,4 +1,4 @@
-#include "sched/sched.h"
+#include "kernel/sched/sched.h"
 #
 
 static volatile int need_resched = 0;

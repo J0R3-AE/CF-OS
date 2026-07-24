@@ -1,11 +1,12 @@
 /* file: src/kheap.c */
-#include "mm/heap.h"
-#include "mm/vmm.h"
-#include "mm/pmm.h"
+#include "kernel/mm/heap.h"
+#include "kernel/mm/vmm.h"
+#include "kernel/mm/pmm.h"
 
-#include "libk/errno.h"
-#include "libk/string.h"
-#include "libk/mem.h"
+#include "libc/errno.h"
+#include "libc/string.h"
+#include "libc/mem.h"
+#include "libc/math.h"
 
 // Simple heap allocator using a linked list of free/used chunks.
 typedef struct heap_chunk

@@ -1,4 +1,4 @@
-#include "net/net.h"
+#include "kernel/net/net.h"
 
 int net_nic_initialize(net_device_t *dev)
 {

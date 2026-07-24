@@ -1,12 +1,12 @@
-#include "arch/idt.h"
-#include "arch/io.h"
-#include "arch/pic.h"
+#include "kernel/arch/idt.h"
+#include "kernel/arch/io.h"
+#include "kernel/arch/pic.h"
 
-#include "libk/string.h"
-#include "libk/mem.h"
-#include "libk/types.h"
+#include "libc/string.h"
+#include "libc/mem.h"
+#include "libc/types.h"
 
-#include "libk/log.h"
+#include "libc/log.h"
 #include "syscall.h"
 
 /* IDT entries array - 256 entries for all possible interrupts */
@@ -210,9 +210,9 @@ void irq_handler(registers_t *regs)
     // Send EOI to PIC
     if (regs->int_no >= 40)
     {
-        io_Write8(PIC_SLAVE_CMD, PIC_CMD_EOI);
+        out8(PIC_SLAVE_CMD, PIC_CMD_EOI);
     }
-    io_Write8(PIC_MASTER_CMD, PIC_CMD_EOI);
+    out8(PIC_MASTER_CMD, PIC_CMD_EOI);
 
     if (regs->int_no < 256 && interrupt_handlers[regs->int_no])
     {

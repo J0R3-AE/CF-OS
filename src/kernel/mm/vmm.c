@@ -1,9 +1,9 @@
 /* file: src/vmm.c */
-#include "mm/vmm.h"
-#include "mm/pmm.h"
+#include "kernel/mm/vmm.h"
+#include "kernel/mm/pmm.h"
 
-#include "libk/string.h"
-#include "libk/mem.h"
+#include "libc/string.h"
+#include "libc/mem.h"
 
 #include <stddef.h>
 

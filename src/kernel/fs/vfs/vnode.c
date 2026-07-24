@@ -1,5 +1,5 @@
-#include "fs/vnode.h"
-#include "mm/heap.h"
+#include "kernel/fs/vnode.h"
+#include "kernel/mm/heap.h"
 
 struct vnode *vnode_create(struct mount *mp, vnode_type_t type, const struct vnode_ops *ops, void *fs_data)
 {

@@ -1,6 +1,6 @@
-#include "fs/blockdev.h"
+#include "kernel/fs/blockdev.h"
 #include <stddef.h>
-#include "libk/string.h"
+#include "libc/string.h"
 
 static struct blockdev *g_blockdev_list = NULL;
 

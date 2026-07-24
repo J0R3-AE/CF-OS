@@ -1,6 +1,6 @@
 
 #include "syscall.h"
-#include "libk/dirent.h"
+#include "libc/dirent.h"
 
 int ls(int argc, char **argv)
 {

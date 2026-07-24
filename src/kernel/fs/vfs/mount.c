@@ -1,9 +1,10 @@
-#include "fs/mount.h"
+#include "kernel/fs/mount.h"
 
-#include "libk/string.h"
-#include "libk/types.h"
-#include "libk/errno.h"
-#include "mm/heap.h"
+#include "libc/string.h"
+#include "libc/mem.h"
+#include "libc/types.h"
+#include "libc/errno.h"
+#include "kernel/mm/heap.h"
 
 /* Global intrusive list head for mounts */
 static Link g_mounts;

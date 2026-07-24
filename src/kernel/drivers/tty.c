@@ -1,9 +1,9 @@
-#include "drivers/tty.h"
-#include "drivers/console.h"
-#include <stdint.h>
+#include "kernel/drivers/tty.h"
+#include "kernel/drivers/console.h"
+#include "libc/types.h"
 #include <stddef.h>
 
-#define VGA_MEM ((uint16_t *)0xB8000)
+#define VGA_MEM ((u16 *)0xB8000)
 
 /* state */
 static int fb_mode = 0;
@@ -11,12 +11,12 @@ static int fb_mode = 0;
 static size_t row = 0, col = 0;
 static size_t rows = 25, cols = 80;
 
-static uint8_t fg = 7, bg = 0;
+static u8 fg = 7, bg = 0;
 
 /* VGA entry */
-static inline uint16_t vga_entry(char c, uint8_t fg, uint8_t bg)
+static inline u16 vga_entry(char c, u8 fg, u8 bg)
 {
-    return (uint16_t)c | ((uint16_t)((bg << 4) | (fg & 0x0F)) << 8);
+    return (u16)c | ((u16)((bg << 4) | (fg & 0x0F)) << 8);
 }
 
 /* backend switch */
@@ -83,7 +83,7 @@ static void scroll(void)
         }
     }
 
-    uint16_t blank = vga_entry(' ', fg, bg);
+    u16 blank = vga_entry(' ', fg, bg);
 
     for (size_t c = 0; c < cols; c++)
         VGA_MEM[(rows - 1) * cols + c] = blank;

@@ -1,14 +1,13 @@
-#include "arch/io.h"
+#include "kernel/arch/io.h"
 
-#include "libk/printf.h"
-#include "libk/log.h"
+#include "libc/printf.h"
 
-#include "drivers/ata.h"
+#include "kernel/drivers/ata.h"
 
 static int ata_wait_bsy(void)
 {
     for (int i = 0; i < 1000000; i++)
-        if (!(io_Read8(ATA_PRIMARY_IO + ATA_REG_STATUS) & ATA_SR_BSY))
+        if (!(in8(ATA_PRIMARY_IO + ATA_REG_STATUS) & ATA_SR_BSY))
             return 0;
 
     return -1;
@@ -17,7 +16,7 @@ static int ata_wait_bsy(void)
 static int ata_wait_drq(void)
 {
     for (int i = 0; i < 1000000; i++)
-        if (io_Read8(ATA_PRIMARY_IO + ATA_REG_STATUS) & ATA_SR_DRQ)
+        if (in8(ATA_PRIMARY_IO + ATA_REG_STATUS) & ATA_SR_DRQ)
             return 0;
 
     return -1;
@@ -25,26 +24,26 @@ static int ata_wait_drq(void)
 
 int ata_identify(void)
 {
-    io_Write8(ATA_PRIMARY_CTRL, 0x00); /* enable IRQs */
+    out8(ATA_PRIMARY_CTRL, 0x00); /* enable IRQs */
 
-    io_Write8(ATA_PRIMARY_IO + ATA_REG_HDDEVSEL, 0xA0); /* master drive */
+    out8(ATA_PRIMARY_IO + ATA_REG_HDDEVSEL, 0xA0); /* master drive */
     
-    io_wait();
+    iowait();
 
-    io_Write8(ATA_PRIMARY_IO + ATA_REG_SECCOUNT, 0);
-    io_Write8(ATA_PRIMARY_IO + ATA_REG_LBA0, 0);
-    io_Write8(ATA_PRIMARY_IO + ATA_REG_LBA1, 0);
-    io_Write8(ATA_PRIMARY_IO + ATA_REG_LBA2, 0);
+    out8(ATA_PRIMARY_IO + ATA_REG_SECCOUNT, 0);
+    out8(ATA_PRIMARY_IO + ATA_REG_LBA0, 0);
+    out8(ATA_PRIMARY_IO + ATA_REG_LBA1, 0);
+    out8(ATA_PRIMARY_IO + ATA_REG_LBA2, 0);
 
-    io_Write8(ATA_PRIMARY_IO + ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
+    out8(ATA_PRIMARY_IO + ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
 
-    u8 status = io_Read8(ATA_PRIMARY_IO + ATA_REG_STATUS);
+    u8 status = in8(ATA_PRIMARY_IO + ATA_REG_STATUS);
 
     if (status == 0) return -1;
 
     if (ata_wait_bsy() < 0) return -1;
 
-    status = io_Read8(ATA_PRIMARY_IO + ATA_REG_STATUS);
+    status = in8(ATA_PRIMARY_IO + ATA_REG_STATUS);
 
     if (status & ATA_SR_ERR) return -1;
     
@@ -52,7 +51,7 @@ int ata_identify(void)
     if (ata_wait_drq() < 0) return -1;
 
     u16 id_data[256];
-    for (int i = 0; i < 256; i++){id_data[i] = io_Read16(ATA_PRIMARY_IO + ATA_REG_DATA);}
+    for (int i = 0; i < 256; i++){id_data[i] = in16(ATA_PRIMARY_IO + ATA_REG_DATA);}
 
     /* Extract model string (words 27–46) */
     char model[41];
@@ -84,20 +83,20 @@ int ata_read28(u32 lba, void *buf, u32 count)
     {
         if (ata_wait_bsy() < 0) return -1;
 
-        io_Write8(ATA_PRIMARY_IO + ATA_REG_HDDEVSEL, 0xE0 | ((lba >> 24) & 0x0F));
-        io_Write8(ATA_PRIMARY_IO + ATA_REG_SECCOUNT, 1);
-        io_Write8(ATA_PRIMARY_IO + ATA_REG_LBA0, (u8)(lba));
-        io_Write8(ATA_PRIMARY_IO + ATA_REG_LBA1, (u8)(lba >> 8));
-        io_Write8(ATA_PRIMARY_IO + ATA_REG_LBA2, (u8)(lba >> 16));
+        out8(ATA_PRIMARY_IO + ATA_REG_HDDEVSEL, 0xE0 | ((lba >> 24) & 0x0F));
+        out8(ATA_PRIMARY_IO + ATA_REG_SECCOUNT, 1);
+        out8(ATA_PRIMARY_IO + ATA_REG_LBA0, (u8)(lba));
+        out8(ATA_PRIMARY_IO + ATA_REG_LBA1, (u8)(lba >> 8));
+        out8(ATA_PRIMARY_IO + ATA_REG_LBA2, (u8)(lba >> 16));
 
-        io_Write8(ATA_PRIMARY_IO + ATA_REG_COMMAND, 0x20);
+        out8(ATA_PRIMARY_IO + ATA_REG_COMMAND, 0x20);
 
         if (ata_wait_bsy() < 0) return -1;
         if (ata_wait_drq() < 0) return -1;
 
         u16 *ptr = (u16 *)((u8 *)buf + i * 512);
 
-        for (int j = 0; j < 256; j++){ptr[j] = io_Read16(ATA_PRIMARY_IO + ATA_REG_DATA);}
+        for (int j = 0; j < 256; j++){ptr[j] = in16(ATA_PRIMARY_IO + ATA_REG_DATA);}
 
         lba++;
     }
@@ -112,20 +111,20 @@ int ata_write28(u32 lba, const void *buf, u32 count)
     {
         if (ata_wait_bsy() < 0) return -1;
 
-        io_Write8(ATA_PRIMARY_IO + ATA_REG_HDDEVSEL, 0xE0 | ((lba >> 24) & 0x0F));
-        io_Write8(ATA_PRIMARY_IO + ATA_REG_SECCOUNT, 1);
-        io_Write8(ATA_PRIMARY_IO + ATA_REG_LBA0, (u8)(lba));
-        io_Write8(ATA_PRIMARY_IO + ATA_REG_LBA1, (u8)(lba >> 8));
-        io_Write8(ATA_PRIMARY_IO + ATA_REG_LBA2, (u8)(lba >> 16));
+        out8(ATA_PRIMARY_IO + ATA_REG_HDDEVSEL, 0xE0 | ((lba >> 24) & 0x0F));
+        out8(ATA_PRIMARY_IO + ATA_REG_SECCOUNT, 1);
+        out8(ATA_PRIMARY_IO + ATA_REG_LBA0, (u8)(lba));
+        out8(ATA_PRIMARY_IO + ATA_REG_LBA1, (u8)(lba >> 8));
+        out8(ATA_PRIMARY_IO + ATA_REG_LBA2, (u8)(lba >> 16));
 
-        io_Write8(ATA_PRIMARY_IO + ATA_REG_COMMAND, 0x30);
+        out8(ATA_PRIMARY_IO + ATA_REG_COMMAND, 0x30);
 
         if (ata_wait_bsy() < 0) return -1;
         if (ata_wait_drq() < 0) return -1;
 
         const u16 *ptr = (const u16 *)((const u8 *)buf + i * 512);
 
-        for (int j = 0; j < 256; j++){io_Write16(ATA_PRIMARY_IO + ATA_REG_DATA, ptr[j]);}
+        for (int j = 0; j < 256; j++){out16(ATA_PRIMARY_IO + ATA_REG_DATA, ptr[j]);}
 
         lba++;
     }

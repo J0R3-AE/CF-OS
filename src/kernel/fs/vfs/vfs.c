@@ -1,12 +1,12 @@
-#include "fs/vfs.h"
-#include "fs/fs_types.h"
-#include "fs/mount.h"
-#include "libk/string.h"
-#include "libk/mem.h"
-#include "libk/link.h"
-#include "libk/errno.h"
-#include "mm/heap.h"
-#include "proc/proc.h"
+#include "kernel/fs/vfs.h"
+#include "kernel/fs/fs_types.h"
+#include "kernel/fs/mount.h"
+#include "libc/string.h"
+#include "libc/mem.h"
+#include "libc/link.h"
+#include "libc/errno.h"
+#include "kernel/mm/heap.h"
+#include "kernel/proc/proc.h"
 
 // Globals
 

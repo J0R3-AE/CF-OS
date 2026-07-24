@@ -1,8 +1,8 @@
-#include "sched/sched.h"
+#include "kernel/sched/sched.h"
 
-#include "libk/mem.h"
-#include "libk/log.h"
-#include "mm/heap.h"
+#include "libc/mem.h"
+#include "libc/log.h"
+#include "kernel/mm/heap.h"
 
 Thread *g_current = NULL;
 Thread *g_idle_thread = NULL;

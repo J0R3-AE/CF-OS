@@ -1,13 +1,13 @@
-#include "proc/proc.h"
-#include "fs/vfs.h"
-#include "elf/elf.h"
-#include "mm/paging.h"
-#include "mm/pmm.h"
-#include "mm/heap.h"
-#include "libk/mem.h"
-#include "libk/math.h"
-#include "libk/log.h"
-#include "sched/sched.h"
+#include "kernel/proc/proc.h"
+#include "kernel/fs/vfs.h"
+#include "kernel/binfmt/elf.h"
+#include "kernel/mm/paging.h"
+#include "kernel/mm/pmm.h"
+#include "kernel/mm/heap.h"
+#include "libc/mem.h"
+#include "libc/math.h"
+#include "libc/log.h"
+#include "kernel/sched/sched.h"
 
 extern void enter_user_mode(u32 eip, u32 esp);
 

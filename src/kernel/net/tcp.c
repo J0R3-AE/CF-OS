@@ -1,4 +1,4 @@
-#include "net/net.h"
+#include "kernel/net/net.h"
 
 u16 net_tcp_checksum(const u8 src_ip[4], const u8 dst_ip[4], const void *data, usize len)
 {
