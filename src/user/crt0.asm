@@ -11,5 +11,5 @@ _start:
 
     ; return value from main -> exit(status)
     mov ebx, eax      ; status
-    mov eax, 1        ; SYS_exit (you define this as 1)
+    mov eax, 1        ; SYS_exit 
     int 0x80
