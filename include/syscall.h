@@ -11,6 +11,25 @@
  *  - Keep kernel + libc in sync with this file
  * ========================================================================== */
 
+#include "libc/string.h"
+#include "libc/mem.h"
+#include "libc/log.h"
+#include "libc/types.h"
+#include "libc/errno.h"
+#include "libc/dirent.h"
+
+#include "kernel/arch/idt.h"
+#include "kernel/arch/io.h"
+
+#include "kernel/fs/fd.h"
+#include "kernel/fs/vfs.h"
+
+#include "kernel/drivers/tty.h"
+#include "kernel/drivers/line.h"
+#include "kernel/drivers/serial.h"
+
+#include "kernel/sched/sched.h"
+#include "kernel/proc/proc.h"
 /* --------------------------------------------------------------------------
  * Core process control
  * -------------------------------------------------------------------------- */
@@ -51,6 +70,26 @@
 #define SYS_print 40
 #define SYS_scan 41
 #define SYS_printcolor 42
+
+/* TODO: move per‑process fd tables into process_t */
+static inline fd_table_t g_fd_tables[64];
+static inline int g_fd_tables_used[64];
+
+static inline fd_table_t *syscall_get_fd_table(void)
+{
+    process_t *p = proc_current();
+    if (!p || p->pid < 0 || p->pid >= 64)
+        return NULL;
+
+    if (!g_fd_tables_used[p->pid])
+    {
+        fd_table_init(&g_fd_tables[p->pid]);
+        g_fd_tables_used[p->pid] = 1;
+    }
+
+    return &g_fd_tables[p->pid];
+}
+
 
 /* --------------------------------------------------------------------------
  * User-space libc wrappers

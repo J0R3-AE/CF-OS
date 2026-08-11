@@ -4,13 +4,34 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/include",
-                "${workspaceFolder}/include/**"
+                "${workspaceFolder}/include/**",
+                "${workspaceFolder}/src",
+                "${workspaceFolder}/src/**",
+                "${workspaceFolder}/src/kernel",
+                "${workspaceFolder}/src/libc",
+                "${workspaceFolder}/src/user",
+                "/usr/include",
+                "/usr/include/x86_64-linux-gnu"
             ],
+            "browse": {
+                "path": [
+                    "${workspaceFolder}/include",
+                    "${workspaceFolder}/include/**",
+                    "${workspaceFolder}/src",
+                    "${workspaceFolder}/src/**",
+                    "${workspaceFolder}/src/kernel",
+                    "${workspaceFolder}/src/libc",
+                    "${workspaceFolder}/src/user"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": "${workspaceFolder}/.vscode/browse.vc.db"
+            },
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c17",
             "cppStandard": "gnu++17",
-            "intelliSenseMode": "linux-gcc-x64"
+            "intelliSenseMode": "linux-gcc-x64",
+            "compilerArgs": ["-m32", "-ffreestanding", "-fno-stack-protector"]
         }
     ],
     "version": 4

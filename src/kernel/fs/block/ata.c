@@ -28,7 +28,7 @@ int ata_identify(void)
 
     out8(ATA_PRIMARY_IO + ATA_REG_HDDEVSEL, 0xA0); /* master drive */
     
-    iowait();
+    wait();
 
     out8(ATA_PRIMARY_IO + ATA_REG_SECCOUNT, 0);
     out8(ATA_PRIMARY_IO + ATA_REG_LBA0, 0);

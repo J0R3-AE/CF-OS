@@ -135,7 +135,7 @@ typedef bool                b32;
  * @brief Size constants for readability.
  */
 #define KB 1024ULL
-#define MB (1024ULL * 1024ULL)
-#define GB (1024ULL * 1024ULL * 1024ULL)
-#define TB (1024ULL * 1024ULL * 1024ULL * 1024ULL)
+#define MB 1024ULL * 1024ULL
+#define GB 1024ULL * 1024ULL * 1024ULL
+#define TB 1024ULL * 1024ULL * 1024ULL * 1024ULL
 

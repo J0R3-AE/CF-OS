@@ -63,7 +63,6 @@ void pit_handler(registers_t *r)
 
     wake_sleepers();
     sched_tick();
-    pic_send_eoi(0);
 }
 
 /* New header function */

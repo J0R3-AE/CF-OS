@@ -99,41 +99,12 @@ void disableinterrupts(void);
 /**
  * @brief Halt the CPU until the next external interrupt.
  */
-void io_halt(void);
-
-/**
- * @brief Enable CPU interrupts (assembly version).
- */
-void i386io_enableinterrupts(void);
-
-/**
- * @brief Disable CPU interrupts (assembly version).
- */
-void i386io_disableinterrupts(void);
-
-/**
- * @brief Halt the CPU until the next interrupt (assembly version).
- */
-void i386io_hlt(void);
-
-/**
- * @brief Delay briefly to allow slow I/O devices to settle.
- *
- * Typically implemented as an outb to port 0x80.
- */
-void i386io_iowait(void);
-
-/**
- * @brief Print a panic message and halt the system.
- *
- * @param msg Null‑terminated panic message.
- */
-void i386io_panic(const char *msg);
+void halt(void);
 
 /**
  * @brief Standard I/O wait helper (alias for iowait).
  */
-void iowait(void);
+void wait(void);
 
 /* -------------------------------------------------------------------------- */
 /* Serial Port Output (COM1)                                                   */

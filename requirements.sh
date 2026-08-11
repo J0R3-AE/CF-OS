@@ -1,12 +1,24 @@
-sudo apt install make
-sudo apt install grub-common
-sudo apt install nasm -y
-sudo apt install qemu-system qemu-utils
-sudo apt install qemu-kvm libvirt-daemon-system virtinst libvirt-clients bridge-utils
-sudo apt-get install gcc-multilib libc6-dev-i386
-sudo apt install gcc-i686-linux-gnu
-sudo apt install gcc-multilib binutils-multiarch
-sudo apt install build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo
-sudo apt-get install libc6-dev
-sudo apt install grub-pc-bin grub-common xorriso mtools --yes
-sudo apt install build-essential gcc-multilibp
+#!/bin/bash
+
+sudo pacman -Syu --noconfirm
+
+# Build tools
+sudo pacman -S --noconfirm base-devel make bison flex texinfo
+
+# GRUB + ISO tools
+sudo pacman -S --noconfirm grub xorriso mtools
+
+# Assembly tools
+sudo pacman -S --noconfirm nasm
+
+# QEMU + virtualization
+sudo pacman -S --noconfirm qemu-full virt-manager bridge-utils
+
+# Multilib + cross‑compilers
+sudo pacman -S --noconfirm gcc-multilib lib32-glibc
+sudo pacman -S --noconfirm gcc binutils
+
+# GMP / MPC / MPFR (compiler math libs)
+sudo pacman -S --noconfirm gmp libmpc mpfr
+
+echo "All packages installed successfully."

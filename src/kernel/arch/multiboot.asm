@@ -4,14 +4,13 @@ SECTION .multiboot
 ALIGN 4
 
 MULTIBOOT_MAGIC    equ 0x1BADB002
-MULTIBOOT_FLAGS    equ 0x00000007        ; mem info + boot device + video
+MULTIBOOT_FLAGS    equ 0x00000007        ; request memory info + boot device only
 MULTIBOOT_CHECKSUM equ -(MULTIBOOT_MAGIC + MULTIBOOT_FLAGS)
 
 dd MULTIBOOT_MAGIC
 dd MULTIBOOT_FLAGS
 dd MULTIBOOT_CHECKSUM
 
-; Optional address fields (we'll leave them 0 for now)
     ; framebuffer tag
     dw 5                        ; tag type: framebuffer
     dw 0                        ; flags

@@ -56,5 +56,28 @@
   "C_Cpp_Runner.useLeakSanitizer": false,
   "C_Cpp_Runner.showCompilationTime": false,
   "C_Cpp_Runner.useLinkTimeOptimization": false,
-  "C_Cpp_Runner.msvcSecureNoWarnings": false
+  "C_Cpp_Runner.msvcSecureNoWarnings": false,
+
+  "clangd.path": "/usr/bin/clangd",
+  "clangd.arguments": ["--background-index", "--compile-commands-dir=build"],
+  "clangd.fallbackFlags": [
+    "-I", "${workspaceFolder}/include",
+    "-I", "${workspaceFolder}/src",
+    "-I", "${workspaceFolder}/src/kernel",
+    "-I", "${workspaceFolder}/src/libc",
+    "-I", "${workspaceFolder}/src/user",
+    "-isystem", "/usr/include",
+    "-isystem", "/usr/include/x86_64-linux-gnu",
+    "-D", "KERNEL",
+    "-m32",
+    "-ffreestanding",
+    "-fno-stack-protector",
+    "-std=gnu11"
+  ],
+  "clangd.semanticHighlighting": true,
+  "C_Cpp.intelliSenseEngine": "Disabled",
+  "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
+  "files.exclude": {
+    "**/build/**": true
+  }
 }

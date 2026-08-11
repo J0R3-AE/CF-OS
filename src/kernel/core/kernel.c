@@ -68,10 +68,11 @@ void kmain(u32 magic, multiboot_info_t *mbi)
     uint32_t isa = 0;
 
     g_mbi = mbi;
-    printf("Kernel starting...");
-
-    /* Early devices */
+    
+    /* Initialize serial FIRST, before any printf() calls */
     serial_init(0x3F8);
+    
+    printf("Kernel starting...");
 
     arch_detect(&arch, &isa);
     print_cpu_features(arch, isa);

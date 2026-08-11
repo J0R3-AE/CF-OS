@@ -24,8 +24,13 @@ int serial_transmit_empty(void)
 
 static void serial_wait_tx(void)
 {
-    while (!serial_transmit_empty())
+    /* Wait for transmit empty, but bound the wait to avoid locking
+     * the kernel forever if the serial device is not present or not
+     * responding (helps when running under different QEMU configs). */
+    for (int i = 0; i < 10000 && !serial_transmit_empty(); ++i)
     {
+        /* small no-op to prevent optimization */
+        __asm__ volatile("");
     }
 }
 
@@ -109,9 +114,9 @@ u16 serial_get_port(void)
 
 void serial_write_char(char c)
 {
-    if (!g_initialized)
-        return;
-
+    /* Emit serial output even if loopback test failed. This helps
+     * capture early boot messages from QEMU for debugging the
+     * bootloop. Remove this override once issue is resolved. */
     serial_wait_tx();
     out8(SERIAL_DATA(g_serial_port), (u8)c);
 }

@@ -1,18 +1,19 @@
-export PATH := $(PATH)
+export PATH := $(HOME)/.local/i386-elf/bin:$(PATH)
 # === Tools ===
-CC	  := i686-elf-gcc
-CXX	  := i686-elf-g++
+CC	  := i386-elf-gcc
+CXX	  := i386-elf-g++
 AS	  := nasm
-LD	  := i686-elf-ld
-OBJCOPY := i686-elf-objcopy
+LD	  := i386-elf-ld
+OBJCOPY := i386-elf-objcopy
 GRUB	:= grub-mkrescue
 QEMU	:= qemu-system-i386
 
 # === Flags ===
-CFLAGS  := -m32 -ffreestanding -fno-builtin -O2 -Wall -Wextra -Iinclude -Isrc/kernel -Isrc/libc -Isrc/user
+CFLAGS  := -ffreestanding -fno-builtin -fno-stack-protector -O2 -Wall -Wextra -Iinclude -Isrc/kernel -Isrc/libc -Isrc/user
+CXXFLAGS := $(CFLAGS)
 
 ASFLAGS := -f elf32
-LDFLAGS := -m elf_i386 -T src/kernel/linker.ld
+LDFLAGS := -T src/kernel/linker.ld
 
 # === Directories ===
 SRC	 := .
@@ -115,6 +116,10 @@ $(USER_TAR): $(USER_ELF)
 	@rm -f $(BUILD)/init
 	@echo "Built user TAR: $@"
 
+build/kernel/user/init_tar.o: $(USER_TAR)
+
+build/kernel/user/init_elf.o: $(USER_ELF)
+
 # === ISO Image ===
 kernel.iso: $(KERNEL) $(USER_TAR)
 	@mkdir -p $(ISO)/boot/grub
@@ -125,12 +130,20 @@ kernel.iso: $(KERNEL) $(USER_TAR)
 	@echo "Built ISO image: $@"
 
 run: kernel.iso
-	qemu-system-x86_64 -cdrom kernel.iso -m 512M -serial stdio -display gtk
+	qemu-system-i386 -cdrom kernel.iso -m 512M -serial stdio -display gtk
 
 debug-path:
 	@echo "Current PATH inside make is:"
 	@echo $(PATH)
 	@which i686-elf-tools || echo "i686-elf-gcc NOT FOUND IN MAKE PATH"
+
+full:
+	@echo "Cleaning previous build..."
+	@$(MAKE) clean
+	@echo "Building full project..."
+	@$(MAKE) all
+	@echo "Running QEMU..."
+	@$(MAKE) run
 
 
 clean:
