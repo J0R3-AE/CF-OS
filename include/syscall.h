@@ -28,8 +28,9 @@
 #include "kernel/drivers/line.h"
 #include "kernel/drivers/serial.h"
 
-#include "kernel/sched/sched.h"
-#include "kernel/proc/proc.h"
+#include "kernel/sched/scheduler.h"
+#include "kernel/sched/thread.h"
+#include "kernel/proc/process.h"
 /* --------------------------------------------------------------------------
  * Core process control
  * -------------------------------------------------------------------------- */

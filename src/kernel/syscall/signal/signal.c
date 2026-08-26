@@ -15,29 +15,13 @@
  *   - Wire signal_fetch into the scheduler or syscall return path to arrange delivery.
  */
 
-#include "signal.h"
+#include "kernel/signal/signal.h"
+
 #include "libc/types.h"
 #include "libc/errno.h"
 #include "libc/string.h"
+#include "libc/mem.h"
 
-/* Forward-declare RT queue type and functions from queue.c
- * TODO: when queue.c is implemented, move rtq_t and prototypes to a header.
- */
-typedef struct rtq_t rtq_t;
-void rtq_init(rtq_t *q);
-int rtq_is_empty(const rtq_t *q);
-int rtq_is_full(const rtq_t *q);
-int rtq_enqueue(rtq_t *q, int sig, const siginfo_t *info);
-int rtq_dequeue(rtq_t *q, int *out_sig, siginfo_t *out_info);
-
-/* Per-thread signal state placeholder.
- * TODO: embed this structure inside your real thread_t and remove the typedef here.
- */
-typedef struct {
-    sigset_t mask;    /* blocked signals */
-    sigset_t pending; /* pending non-RT signals */
-    rtq_t *rtq;       /* pointer to real-time queue instance */
-} thread_sigstate_t;
 
 /* Initialize a thread's signal state.
  * TODO:
@@ -47,10 +31,13 @@ typedef struct {
  */
 void signal_thread_init(thread_sigstate_t *s)
 {
-    if (!s) return;
+    if (!s)
+        return;
+
     sigemptyset(&s->mask);
     sigemptyset(&s->pending);
-    s->rtq = NULL; /* TODO: allocate or point to embedded rtq */
+
+    rtq_init(&s->rt_queue);
 }
 
 /* Add a signal to a thread's pending set or RT queue.
@@ -66,12 +53,28 @@ void signal_thread_init(thread_sigstate_t *s)
  *  - If the target thread is sleeping or blocked in the scheduler, wake it.
  *  - If the signal is SIGKILL or SIGSTOP, handle kernel-only semantics.
  */
-int signal_add(thread_sigstate_t *s, int sig, const siginfo_t *info)
+int signal_add(
+    thread_sigstate_t *s,
+    int sig,
+    const siginfo_t *info)
 {
-    (void)s;
-    (void)sig;
-    (void)info;
-    return -ENOSYS; /* not implemented yet */
+    if (!s)
+        return -EINVAL;
+
+    if (sig < SIG_MIN || sig > SIG_MAX)
+        return -EINVAL;
+
+    if (SIG_IS_REALTIME(sig))
+    {
+        return rtq_enqueue(
+            &s->rt_queue,
+            sig,
+            info);
+    }
+
+    sigaddset(&s->pending, sig);
+
+    return 0;
 }
 
 /* Fetch the next deliverable signal for this thread.
@@ -85,12 +88,76 @@ int signal_add(thread_sigstate_t *s, int sig, const siginfo_t *info)
  *  - Respect per-thread mask in s->mask.
  *  - Consider performance: scanning every signal is simple but can be optimized.
  */
-int signal_fetch(thread_sigstate_t *s, int *out_sig, siginfo_t *out_info)
+int signal_fetch(
+    thread_sigstate_t *s,
+    int *out_sig,
+    siginfo_t *out_info)
 {
-    (void)s;
-    (void)out_sig;
-    (void)out_info;
-    return -ENOENT; /* no signal available placeholder */
+    if (!s || !out_sig)
+        return -EINVAL;
+
+    /*
+     * Real-time queue first.
+     */
+    if (!rtq_is_empty(&s->rt_queue))
+    {
+        int sig;
+        siginfo_t info;
+
+        if (rtq_peek(
+                &s->rt_queue,
+                &sig,
+                &info) == 0)
+        {
+            if (!sigismember(&s->mask, sig))
+            {
+                rtq_dequeue(
+                    &s->rt_queue,
+                    out_sig,
+                    out_info);
+
+                return 0;
+            }
+        }
+    }
+
+    /*
+     * Ordinary pending signals.
+     */
+    for (int sig = SIG_MIN;
+         sig <= SIG_MAX;
+         ++sig)
+    {
+        if (!sigismember(
+                &s->pending,
+                sig))
+            continue;
+
+        if (sigismember(
+                &s->mask,
+                sig))
+            continue;
+
+        sigdelset(
+            &s->pending,
+            sig);
+
+        if (out_info)
+        {
+            memset(
+                out_info,
+                0,
+                sizeof(*out_info));
+
+            out_info->si_signo = sig;
+        }
+
+        *out_sig = sig;
+
+        return 0;
+    }
+
+    return -ENOENT;
 }
 
 /* Block signals in 'set' by OR-ing into the thread mask.
@@ -104,7 +171,7 @@ int signal_block(thread_sigstate_t *s, const sigset_t *set)
 {
     if (!s || !set) return -EINVAL;
     /* TODO: atomic OR of mask bits */
-    return -ENOSYS;
+    return ERR_NOT_SUPPORTED;
 }
 
 /* Unblock signals in 'set' by clearing bits from the thread mask.
@@ -118,7 +185,7 @@ int signal_unblock(thread_sigstate_t *s, const sigset_t *set)
 {
     if (!s || !set) return -EINVAL;
     /* TODO: atomic AND NOT of mask bits and trigger delivery if needed */
-    return -ENOSYS;
+    return ERR_NOT_SUPPORTED;
 }
 
 /* Check if any unmasked pending signal exists for fast scheduler checks.

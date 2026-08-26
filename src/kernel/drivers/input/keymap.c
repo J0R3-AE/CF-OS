@@ -48,7 +48,8 @@ static uint8_t keymap_us[KEY_MAX] = {
 
 uint8_t keymap_get_ascii(keycode_t key)
 {
-    if (key <= 0 || key >= KEY_MAX)
+    if (key <= KEY_NONE || key >= KEY_MAX)
         return 0;
+
     return keymap_us[key];
 }

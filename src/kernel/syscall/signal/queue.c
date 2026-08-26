@@ -8,36 +8,21 @@
  *
  * Notes / TODO:
  *  - This implementation is NOT thread-safe. Add a spinlock or other
- *    synchronization if signals can be enqueued from multiple CPUs/contexts.
+ *    synchronization if signals can be enqueued from multiple CPUs/contexts.scm-history-item:/home/jahruhnn/Projects/minios?%7B%22repositoryId%22%3A%22scm0%22%2C%22historyItemId%22%3A%2288cc07451cd63231beecbec3d90f2aa97c15dbc8%22%2C%22historyItemParentId%22%3A%2283e401588b22fb1447880ad1dbd84ff780a505a0%22%2C%22historyItemDisplayId%22%3A%2288cc074%22%7D
  *  - Consider making capacity configurable or using dynamic allocation.
  *  - Consider exposing a header (queue.h) with rtq_t and function prototypes.
  */
 
-#include <signal.h>
+#include <kernel/signal/signal.h>
 #include <libc/link.h>
 #include <libc/types.h>
 #include <libc/errno.h>
 #include <libc/string.h>
-
+#include <libc/mem.h>
 /* Tunable capacity for the RT queue */
 #ifndef RTQ_CAPACITY
 #define RTQ_CAPACITY 64
 #endif
-
-/* One queue entry: intrusive Link plus payload (sig and siginfo) */
-typedef struct rtq_entry {
-    Link link;         /* intrusive list node */
-    int sig;           /* signal number */
-    siginfo_t info;    /* associated siginfo (copied) */
-} rtq_entry_t;
-
-/* Real-time queue structure */
-typedef struct {
-    Link used_head;                /* head for queued (used) entries; FIFO: pop from next */
-    Link free_head;                /* head for free entries */
-    rtq_entry_t pool[RTQ_CAPACITY];/* fixed pool of entries */
-    unsigned count;                /* number of used entries */
-} rtq_t;
 
 /* Initialize the queue: set up free list with all pool entries and empty used list */
 void rtq_init(rtq_t *q)
@@ -84,7 +69,7 @@ int rtq_is_full(const rtq_t *q)
  *
  * Returns:
  *   0      on success
- *  -EAGAIN if queue is full
+ *  ERR_BUSY if queue is full
  *  -EINVAL if args invalid
  *
  * TODO:
@@ -97,13 +82,13 @@ int rtq_enqueue(rtq_t *q, int sig, const siginfo_t *info)
     if (sig < SIG_MIN || sig > SIG_MAX) return -EINVAL;
 
     /* If no free entries, queue is full */
-    if (rtq_is_full(q)) return -EAGAIN;
+    if (rtq_is_full(q)) return ERR_BUSY;
 
     /* Pop one entry from free_head (free list head->next) */
     Link *free_node = q->free_head.next;
     if (!free_node || free_node == &q->free_head) {
         /* unexpected empty free list */
-        return -EAGAIN;
+        return ERR_BUSY;
     }
 
     /* Detach from free list */

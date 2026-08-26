@@ -6,7 +6,7 @@
 #include "libc/link.h"
 #include "libc/errno.h"
 #include "kernel/mm/heap.h"
-#include "kernel/proc/proc.h"
+#include "kernel/proc/exec.h"
 
 // Globals
 

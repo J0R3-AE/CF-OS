@@ -1,11 +1,17 @@
-#ifndef LINE_H
-#define LINE_H
+#pragma once
 
-#include <stdint.h>
-#include "keyevent.h"
+#include <stddef.h>
+
+#include "kernel/drivers/keyevent.h"
 
 void line_reset(void);
-int  line_handle_keyevent(const key_event_t *ev);
-const char *line_get_buffer(void);
 
-#endif
+int line_handle_keyevent(const key_event_t *ev);
+
+int line_ready(void);
+int line_eof(void);
+
+const char *line_get_buffer(void);
+size_t line_get_length(void);
+
+void line_consume(void);

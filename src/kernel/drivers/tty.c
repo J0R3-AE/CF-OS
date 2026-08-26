@@ -1,182 +1,440 @@
 #include "kernel/drivers/tty.h"
 #include "kernel/drivers/console.h"
+
 #include "libc/types.h"
+
 #include <stddef.h>
+#include <stdint.h>
 
-#define VGA_MEM ((u16 *)0xB8000)
+/* -------------------------------------------------------------------------- */
+/* Backend/state                                                              */
+/* -------------------------------------------------------------------------- */
 
-/* state */
 static int fb_mode = 0;
 
-static size_t row = 0, col = 0;
-static size_t rows = 25, cols = 80;
+volatile uint16_t *TTY_base = (volatile uint16_t *)VGA_MEMORY;
 
-static u8 fg = 7, bg = 0;
+size_t TTY_row = 0;
+size_t TTY_col = 0;
 
-/* VGA entry */
-static inline u16 vga_entry(char c, u8 fg, u8 bg)
+size_t TTY_ROWS = 25;
+size_t TTY_COLS = 80;
+
+uint8_t TTY_fg = TTY_COLOR_WHITE;
+uint8_t TTY_bg = TTY_COLOR_BLACK;
+
+
+/* -------------------------------------------------------------------------- */
+/* Input                                                                       */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * line.c owns the actual canonical input buffer.
+ * tty.c provides the terminal-facing API around it.
+ */
+extern int line_ready(void);
+extern int line_eof(void);
+extern const char *line_get_buffer(void);
+extern size_t line_get_length(void);
+extern void line_consume(void);
+
+
+/* -------------------------------------------------------------------------- */
+/* VGA                                                                         */
+/* -------------------------------------------------------------------------- */
+
+static inline uint16_t vga_entry(
+    char c,
+    uint8_t fg,
+    uint8_t bg)
 {
-    return (u16)c | ((u16)((bg << 4) | (fg & 0x0F)) << 8);
+    return (uint16_t)c |
+           ((uint16_t)(((bg & 0x0F) << 4) |
+                       (fg & 0x0F)) << 8);
 }
 
-/* backend switch */
+
+/* -------------------------------------------------------------------------- */
+/* Backend                                                                     */
+/* -------------------------------------------------------------------------- */
+
 void TTY_set_fb_backend(int enable)
 {
     fb_mode = enable ? 1 : 0;
 }
 
-/* init */
+void TTY_set_TTY_base(volatile uint16_t *addr)
+{
+    if (addr)
+        TTY_base = addr;
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* Initialization                                                              */
+/* -------------------------------------------------------------------------- */
+
 void TTY_init(void)
 {
     if (fb_mode)
     {
-        rows = console_rows();
-        cols = console_cols();
+        TTY_ROWS = console_rows();
+        TTY_COLS = console_cols();
     }
     else
     {
-        rows = 25;
-        cols = 80;
+        TTY_ROWS = 25;
+        TTY_COLS = 80;
     }
 
-    row = 0;
-    col = 0;
+    TTY_row = 0;
+    TTY_col = 0;
 
+    TTY_resetcolor();
     TTY_clear();
 }
 
-/* clear */
+
+/* -------------------------------------------------------------------------- */
+/* Cursor                                                                      */
+/* -------------------------------------------------------------------------- */
+
+size_t TTY_getrow(void)
+{
+    return TTY_row;
+}
+
+void TTY_setrow(size_t row)
+{
+    if (row >= TTY_ROWS)
+        row = TTY_ROWS - 1;
+
+    TTY_row = row;
+}
+
+size_t TTY_getcol(void)
+{
+    return TTY_col;
+}
+
+void TTY_setcol(size_t col)
+{
+    if (col >= TTY_COLS)
+        col = TTY_COLS - 1;
+
+    TTY_col = col;
+}
+
+void TTY_getpos(
+    size_t *row,
+    size_t *col)
+{
+    if (row)
+        *row = TTY_row;
+
+    if (col)
+        *col = TTY_col;
+}
+
+void TTY_setpos(
+    size_t row,
+    size_t col)
+{
+    TTY_setrow(row);
+    TTY_setcol(col);
+}
+
+void TTY_getsize(
+    size_t *rows,
+    size_t *cols)
+{
+    if (rows)
+        *rows = TTY_ROWS;
+
+    if (cols)
+        *cols = TTY_COLS;
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* Colors                                                                      */
+/* -------------------------------------------------------------------------- */
+
+void TTY_setcolor(
+    uint8_t fg,
+    uint8_t bg)
+{
+    TTY_fg = fg & 0x0F;
+    TTY_bg = bg & 0x0F;
+}
+
+void TTY_getcolor(
+    uint8_t *fg,
+    uint8_t *bg)
+{
+    if (fg)
+        *fg = TTY_fg;
+
+    if (bg)
+        *bg = TTY_bg;
+}
+
+void TTY_resetcolor(void)
+{
+    TTY_fg = TTY_COLOR_WHITE;
+    TTY_bg = TTY_COLOR_BLACK;
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* Clear                                                                       */
+/* -------------------------------------------------------------------------- */
+
 void TTY_clear(void)
 {
     if (fb_mode)
     {
         console_clear();
-        row = 0;
-        col = 0;
+
+        TTY_row = 0;
+        TTY_col = 0;
+
         return;
     }
 
-    for (size_t i = 0; i < rows * cols; i++)
-        VGA_MEM[i] = vga_entry(' ', fg, bg);
+    if (!TTY_base)
+        return;
 
-    row = 0;
-    col = 0;
+    uint16_t blank = vga_entry(
+        ' ',
+        TTY_fg,
+        TTY_bg);
+
+    for (size_t i = 0;
+         i < TTY_ROWS * TTY_COLS;
+         ++i)
+    {
+        TTY_base[i] = blank;
+    }
+
+    TTY_row = 0;
+    TTY_col = 0;
 }
 
-/* scroll */
-static void scroll(void)
+
+/* -------------------------------------------------------------------------- */
+/* Clear line                                                                  */
+/* -------------------------------------------------------------------------- */
+
+void TTY_clearline(size_t row)
+{
+    if (row >= TTY_ROWS)
+        return;
+
+    if (fb_mode)
+    {
+        for (size_t col = 0;
+             col < TTY_COLS;
+             ++col)
+        {
+            console_putc_at(
+                row,
+                col,
+                ' ',
+                0xFFFFFF,
+                0x000000);
+        }
+
+        return;
+    }
+
+    if (!TTY_base)
+        return;
+
+    uint16_t blank = vga_entry(
+        ' ',
+        TTY_fg,
+        TTY_bg);
+
+    for (size_t col = 0;
+         col < TTY_COLS;
+         ++col)
+    {
+        TTY_base[row * TTY_COLS + col] = blank;
+    }
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* Scroll                                                                      */
+/* -------------------------------------------------------------------------- */
+
+void TTY_scroll(void)
 {
     if (fb_mode)
     {
         console_scroll();
-        if (row > 0)
-            row--;
+
+        if (TTY_row > 0)
+            TTY_row--;
+
         return;
     }
 
-    for (size_t r = 1; r < rows; r++)
+    if (!TTY_base)
+        return;
+
+    for (size_t row = 1;
+         row < TTY_ROWS;
+         ++row)
     {
-        for (size_t c = 0; c < cols; c++)
+        for (size_t col = 0;
+             col < TTY_COLS;
+             ++col)
         {
-            VGA_MEM[(r - 1) * cols + c] =
-                VGA_MEM[r * cols + c];
+            TTY_base[(row - 1) * TTY_COLS + col] =
+                TTY_base[row * TTY_COLS + col];
         }
     }
 
-    u16 blank = vga_entry(' ', fg, bg);
+    uint16_t blank = vga_entry(
+        ' ',
+        TTY_fg,
+        TTY_bg);
 
-    for (size_t c = 0; c < cols; c++)
-        VGA_MEM[(rows - 1) * cols + c] = blank;
+    for (size_t col = 0;
+         col < TTY_COLS;
+         ++col)
+    {
+        TTY_base[(TTY_ROWS - 1) * TTY_COLS + col] = blank;
+    }
 
-    if (row > 0)
-        row--;
+    if (TTY_row > 0)
+        TTY_row--;
 }
 
-/* putc */
-void TTY_putc(char c)
+
+/* -------------------------------------------------------------------------- */
+/* Backspace                                                                  */
+/* -------------------------------------------------------------------------- */
+
+void TTY_backspace(void)
 {
-    /* ---------- CONTROL CHARS ---------- */
-
-    if (c == '\n')
-    {
-        col = 0;
-        row++;
-        goto check_scroll;
-    }
-
-    if (c == '\r')
-    {
-        col = 0;
-        return;
-    }
-
-    if (c == '\t')
-    {
-        size_t spaces = 4 - (col % 4);
-        while (spaces--)
-            TTY_putc(' ');
-        return;
-    }
-
-    if (c == '\b')
-    {
-        if (col > 0)
-        {
-            col--;
-
-            if (fb_mode)
-            {
-                console_putc_at(row, col, ' ',
-                                0xFFFFFF,
-                                0x000000);
-            }
-            else
-            {
-                VGA_MEM[row * cols + col] =
-                    vga_entry(' ', fg, bg);
-            }
-        }
-        return;
-    }
-
-    /* ignore other control chars */
-    if ((unsigned char)c < 32)
+    if (TTY_col == 0)
         return;
 
-    /* ---------- PRINT ---------- */
+    TTY_col--;
 
     if (fb_mode)
     {
-        console_putc_at(row, col, c,
-                        0xFFFFFF,
-                        0x000000);
+        console_putc_at(
+            TTY_row,
+            TTY_col,
+            ' ',
+            0xFFFFFF,
+            0x000000);
+
+        return;
+    }
+
+    if (!TTY_base)
+        return;
+
+    TTY_base[TTY_row * TTY_COLS + TTY_col] =
+        vga_entry(
+            ' ',
+            TTY_fg,
+            TTY_bg);
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* Put character                                                               */
+/* -------------------------------------------------------------------------- */
+
+void TTY_putc(char c)
+{
+    /* Newline */
+    if (c == '\n')
+    {
+        TTY_col = 0;
+        TTY_row++;
+
+        if (TTY_row >= TTY_ROWS)
+            TTY_scroll();
+
+        return;
+    }
+
+    /* Carriage return */
+    if (c == '\r')
+    {
+        TTY_col = 0;
+        return;
+    }
+
+    /* Tab */
+    if (c == '\t')
+    {
+        size_t spaces =
+            4 - (TTY_col % 4);
+
+        while (spaces--)
+            TTY_putc(' ');
+
+        return;
+    }
+
+    /* Backspace */
+    if (c == '\b')
+    {
+        TTY_backspace();
+        return;
+    }
+
+    /* Ignore remaining control characters */
+    if ((uint8_t)c < 32)
+        return;
+
+    if (fb_mode)
+    {
+        console_putc_at(
+            TTY_row,
+            TTY_col,
+            c,
+            0xFFFFFF,
+            0x000000);
     }
     else
     {
-        VGA_MEM[row * cols + col] =
-            vga_entry(c, fg, bg);
+        if (!TTY_base)
+            return;
+
+        TTY_base[
+            TTY_row * TTY_COLS + TTY_col
+        ] = vga_entry(
+            c,
+            TTY_fg,
+            TTY_bg);
     }
 
-    col++;
+    TTY_col++;
 
-    /* wrap */
-    if (col >= cols)
+    if (TTY_col >= TTY_COLS)
     {
-        col = 0;
-        row++;
-    }
+        TTY_col = 0;
+        TTY_row++;
 
-check_scroll:
-    if (row >= rows)
-    {
-        scroll();
-
-        if (row >= rows)
-            row = rows - 1;
+        if (TTY_row >= TTY_ROWS)
+            TTY_scroll();
     }
 }
 
-/* string */
+
+/* -------------------------------------------------------------------------- */
+/* Put string                                                                  */
+/* -------------------------------------------------------------------------- */
+
 void TTY_puts(const char *s)
 {
     if (!s)
@@ -184,4 +442,131 @@ void TTY_puts(const char *s)
 
     while (*s)
         TTY_putc(*s++);
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* Draw without moving cursor                                                 */
+/* -------------------------------------------------------------------------- */
+
+void TTY_putcat(
+    size_t row,
+    size_t col,
+    char ch,
+    uint8_t fg,
+    uint8_t bg)
+{
+    if (row >= TTY_ROWS || col >= TTY_COLS)
+        return;
+
+    if (fb_mode)
+    {
+        /*
+         * Framebuffer console currently takes RGB values,
+         * so use a basic white/black representation here.
+         * This can be replaced with a proper ANSI palette mapper.
+         */
+        console_putc_at(
+            row,
+            col,
+            ch,
+            fg == TTY_COLOR_BLACK ? 0x000000 : 0xFFFFFF,
+            bg == TTY_COLOR_BLACK ? 0x000000 : 0xFFFFFF);
+
+        return;
+    }
+
+    if (!TTY_base)
+        return;
+
+    TTY_base[row * TTY_COLS + col] =
+        vga_entry(ch, fg, bg);
+}
+
+void TTY_putsat(
+    size_t row,
+    size_t col,
+    const char *s,
+    uint8_t fg,
+    uint8_t bg)
+{
+    if (!s || row >= TTY_ROWS || col >= TTY_COLS)
+        return;
+
+    while (*s && col < TTY_COLS)
+    {
+        TTY_putcat(
+            row,
+            col,
+            *s,
+            fg,
+            bg);
+
+        s++;
+        col++;
+    }
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* Input                                                                       */
+/* -------------------------------------------------------------------------- */
+
+int TTY_input_ready(void)
+{
+    return line_ready();
+}
+
+int TTY_input_eof(void)
+{
+    return line_eof();
+}
+
+size_t TTY_readline(
+    char *buffer,
+    size_t size)
+{
+    if (!buffer || size == 0)
+        return 0;
+
+    if (!line_ready())
+    {
+        if (line_eof())
+        {
+            buffer[0] = '\0';
+            return 0;
+        }
+
+        return 0;
+    }
+
+    const char *line = line_get_buffer();
+
+    if (!line)
+    {
+        buffer[0] = '\0';
+        return 0;
+    }
+
+    size_t length =
+        line_get_length();
+
+    if (length >= size)
+        length = size - 1;
+
+    for (size_t i = 0;
+         i < length;
+         ++i)
+    {
+        buffer[i] = line[i];
+    }
+
+    buffer[length] = '\0';
+
+    return length;
+}
+
+void TTY_input_consume(void)
+{
+    line_consume();
 }

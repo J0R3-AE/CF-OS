@@ -13,7 +13,7 @@
 #include <stdint.h>
 #include "idt.h"
 #include "libc/types.h"
-#include "kernel/sched/sched.h"
+#include "kernel/sched/scheduler.h"
 
 /* -------------------------------------------------------------------------- */
 /* I/O Port Definitions                                                        */

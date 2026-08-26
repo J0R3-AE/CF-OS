@@ -4,6 +4,8 @@
 #include "syscall.h"
 #include "libc/string.h"
 
+int shell_main(void);
+
 static const char *art =
     "###########################################################\n"
     "#                                                         #\n"
@@ -246,6 +248,7 @@ void main(void)
     print("Press Ctrl+C to exit.\n");
     int i = 0;
     
+    shell_main();
     while (1)
     {
         char buf[2] = {frames[i % 4], '\0'};

@@ -32,8 +32,9 @@
 #include "kernel/fs/ext2.h"
 #include "kernel/fs/install.h"
 
-#include "kernel/sched/sched.h"
-#include "kernel/proc/proc.h"
+#include "kernel/sched/scheduler.h"
+#include "kernel/proc/process.h"
+#include "kernel/proc/exec.h"
 
 #include "../user/init_elf.h"
 #include "../user/init_tar.h"

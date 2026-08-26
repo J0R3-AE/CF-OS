@@ -1,61 +1,131 @@
-#include "kernel/sched/sched.h"
+#include "kernel/sched/queue.h"
+#include "kernel/sched/thread.h"
 
-Link g_run_queue;
+/* -------------------------------------------------------------------------- */
+/* Initialize                                                                 */
+/* -------------------------------------------------------------------------- */
 
-extern Thread *g_idle_thread;
-
-void runqueue_init(void)
+void thread_queue_init(thread_queue_t *queue)
 {
-    ListInit(&g_run_queue);
+    if (!queue)
+        return;
+
+    queue->head = NULL;
+    queue->tail = NULL;
 }
 
-void runqueue_add(Thread *t)
+
+/* -------------------------------------------------------------------------- */
+/* Push                                                                       */
+/* -------------------------------------------------------------------------- */
+
+void thread_queue_push(
+    thread_queue_t *queue,
+    thread_t *thread)
 {
-    if (!t)
+    if (!queue || !thread || thread->queued)
         return;
 
-    if (!ListIsEmpty(&t->run_link))
-        return;
+    thread->next = NULL;
+    thread->queued = true;
 
-    ListBefore(&g_run_queue, &t->run_link);
-}
-
-void runqueue_remove(Thread *t)
-{
-    if (!t)
-        return;
-
-    if (ListIsEmpty(&t->run_link))
-        return;
-
-    ListRemove(&t->run_link);
-    ListInit(&t->run_link);
-}
-
-Thread *runqueue_next(Thread *from)
-{
-    if (ListIsEmpty(&g_run_queue))
-        return g_idle_thread;
-
-    Link *start = from ? &from->run_link : &g_run_queue;
-    Link *it = start->next;
-
-    while (it != &g_run_queue)
+    if (!queue->head)
     {
-        Thread *t = LinkData(it, Thread, run_link);
-        if (t->state == THREAD_RUNNABLE && t != g_idle_thread)
-            return t;
-        it = it->next;
+        queue->head = thread;
+        queue->tail = thread;
+        return;
     }
 
-    it = g_run_queue.next;
-    while (it != &g_run_queue)
-    {
-        Thread *t = LinkData(it, Thread, run_link);
-        if (t->state == THREAD_RUNNABLE && t != g_idle_thread)
-            return t;
-        it = it->next;
-    }
+    queue->tail->next = thread;
+    queue->tail = thread;
+}
 
-    return g_idle_thread;
+
+/* -------------------------------------------------------------------------- */
+/* Remove                                                                     */
+/* -------------------------------------------------------------------------- */
+
+void thread_queue_remove(
+    thread_queue_t *queue,
+    thread_t *thread)
+{
+    if (!queue || !thread || !queue->head)
+        return;
+
+    thread_t *prev = NULL;
+    thread_t *cur = queue->head;
+
+    while (cur)
+    {
+        if (cur == thread)
+{
+    if (prev)
+        prev->next = cur->next;
+    else
+        queue->head = cur->next;
+
+    if (queue->tail == cur)
+        queue->tail = prev;
+
+    cur->next = NULL;
+    cur->queued = false;
+
+    return;
+}
+
+        prev = cur;
+        cur = cur->next;
+    }
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* Pop                                                                        */
+/* -------------------------------------------------------------------------- */
+
+thread_t *thread_queue_pop(
+    thread_queue_t *queue)
+{
+    if (!queue || !queue->head)
+        return NULL;
+
+    thread_t *thread = queue->head;
+
+    queue->head = thread->next;
+
+    if (!queue->head)
+        queue->tail = NULL;
+
+    thread->next = NULL;
+    thread->queued = false;
+
+    return thread;
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* Front                                                                      */
+/* -------------------------------------------------------------------------- */
+
+thread_t *thread_queue_front(
+    const thread_queue_t *queue)
+{
+    if (!queue)
+        return NULL;
+
+    return queue->head;
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* Empty                                                                      */
+/* -------------------------------------------------------------------------- */
+
+int thread_queue_empty(
+    const thread_queue_t *queue)
+{
+    if (!queue)
+        return 1;
+
+    return queue->head == NULL;
 }

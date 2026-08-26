@@ -9,7 +9,7 @@ GRUB	:= grub-mkrescue
 QEMU	:= qemu-system-i386
 
 # === Flags ===
-CFLAGS  := -ffreestanding -fno-builtin -fno-stack-protector -O2 -Wall -Wextra -Iinclude -Isrc/kernel -Isrc/libc -Isrc/user
+CFLAGS  := -ffreestanding -fno-builtin -fno-stack-protector -O2 -Wall -Wextra -Iinclude -Isrc/kernel -Isrc/shared -Isrc/user
 CXXFLAGS := $(CFLAGS)
 
 ASFLAGS := -f elf32
@@ -19,16 +19,16 @@ LDFLAGS := -T src/kernel/linker.ld
 SRC	 := .
 GRUB_DIR := boot/grub
 BUILD   := build
-LIBC_BUILD := $(BUILD)/libc
+SHARED_BUILD := $(BUILD)/shared
 KERNEL_BUILD := $(BUILD)/kernel
 USER_BUILD := $(BUILD)/user
 
 ISO	 := $(BUILD)/iso
 KERNEL  := $(BUILD)/kernel.elf
 
-# === Libc C & ASM Sources ===
-LIBC_C_SRC := $(shell find src/libc -name '*.c')
-LIBC_ASM_SRC := $(shell find src/libc -name '*.asm')
+# === shared C & ASM Sources ===
+SHARED_C_SRC := $(shell find src/shared -name '*.c')
+SHARED_ASM_SRC := $(shell find src/shared -name '*.asm')
 
 # === Kernel C & ASM Sources ===
 KERNEL_C_SRC := $(shell find src/kernel -name '*.c')
@@ -43,16 +43,16 @@ USER_ELF := $(BUILD)/init.elf
 USER_TAR := $(BUILD)/init.tar
 
 # === Object Files ===
-LIBC_OBJ := \
-	$(patsubst src/libc/%.asm,$(LIBC_BUILD)/%.o,$(LIBC_ASM_SRC)) \
-	$(patsubst src/libc/%.c,$(LIBC_BUILD)/%.o,$(LIBC_C_SRC))
+SHARED_OBJ := \
+	$(patsubst src/shared/%.asm,$(SHARED_BUILD)/%.o,$(SHARED_ASM_SRC)) \
+	$(patsubst src/shared/%.c,$(SHARED_BUILD)/%.o,$(SHARED_C_SRC))
 
-ULIBC_OBJ := \
-    build/libc/asm/math.o \
-    build/libc/asm/mem.o \
-    build/libc/asm/syscall.o \
-	build/libc/asm/string.o \
-	build/libc/syscall.o \
+USHARED_OBJ := \
+    build/shared/asm/math.o \
+    build/shared/asm/mem.o \
+    build/shared/asm/syscall.o \
+	build/shared/asm/string.o \
+	build/shared/syscall.o \
 
 # Strip src/kernel/ prefix
 KERNEL_OBJ := \
@@ -69,12 +69,12 @@ USER_OBJS := \
 all: kernel.iso
 
 
-# === Libc ===
-$(LIBC_BUILD)/%.o: src/libc/%.c
+# === shared ===
+$(SHARED_BUILD)/%.o: src/shared/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(LIBC_BUILD)%.o: src/libc/%.asm
+$(SHARED_BUILD)%.o: src/shared/%.asm
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 	
@@ -87,9 +87,9 @@ $(KERNEL_BUILD)/%.o: src/kernel/%.asm
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
-$(KERNEL): $(LIBC_OBJ) $(USER_ELF) $(USER_TAR) $(KERNEL_OBJ)
+$(KERNEL): $(SHARED_OBJ) $(USER_ELF) $(USER_TAR) $(KERNEL_OBJ)
 	@mkdir -p $(dir $@)
-	$(LD) $(LDFLAGS) $(KERNEL_OBJ) $(LIBC_OBJ) -o $@
+	$(LD) $(LDFLAGS) $(KERNEL_OBJ) $(SHARED_OBJ) -o $@
 	@echo "Built kernel ELF: $@"
 
 # === User ===
@@ -107,7 +107,7 @@ $(USER_BUILD)/%.o: src/user/%.asm
 
 $(USER_ELF): $(USER_OBJS) src/user/linker.ld
 	@mkdir -p $(dir $@)
-	$(LD) -m elf_i386 -T src/user/linker.ld $(USER_OBJS) $(ULIBC_OBJ) -o $@
+	$(LD) -m elf_i386 -T src/user/linker.ld $(USER_OBJS) $(USHARED_OBJ) -o $@
 	@echo "Built user ELF: $@"
 
 $(USER_TAR): $(USER_ELF)

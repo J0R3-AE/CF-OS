@@ -1,4 +1,5 @@
 #include "syscall.h"
+#include "kernel/proc/exec.h"
 
 /*
  * Kernel syscall helper prototypes.
@@ -27,12 +28,19 @@ void syscall_handler(registers_t *regs)
     /* Process Control                                                         */
     /* ---------------------------------------------------------------------- */
     case SYS_exit:
-        proc_mark_exit(arg1);
-        if (g_current)
-            g_current->state = THREAD_ZOMBIE;
-        ksched_yield();
-        regs->eax = ERR_SUCCESS;
-        break;
+{
+    proc_mark_exit(arg1);
+
+    thread_t *current = sched_current();
+
+    if (current)
+        current->state = THREAD_ZOMBIE;
+
+    sched_yield();
+
+    regs->eax = ERR_SUCCESS;
+    break;
+}
 
     case SYS_getpid:
     {

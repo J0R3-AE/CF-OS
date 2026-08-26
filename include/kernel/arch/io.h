@@ -11,105 +11,65 @@
 #pragma once
 #include "libc/types.h"
 
-/* -------------------------------------------------------------------------- */
-/* Port‑Mapped I/O (PIO)                                                       */
-/* -------------------------------------------------------------------------- */
-
-/**
- * @brief Read an 8‑bit value from an I/O port.
- *
- * @param port I/O port number.
- * @return 8‑bit value read.
- */
+// Port‑Mapped I/O (PIO)
+// Read an 8‑bit value from an I/O port.
 u8 in8(u16 port);
 
-/**
- * @brief Read a 16‑bit value from an I/O port.
- */
+// Read a 16‑bit value from an I/O port.
 u16 in16(u16 port);
 
-/**
- * @brief Read a 32‑bit value from an I/O port.
- */
+// Read a 32‑bit value from an I/O port.
 u32 in32(u16 port);
 
-/**
- * @brief Write an 8‑bit value to an I/O port.
- */
+// Write an 8‑bit value to an I/O port.
 void out8(u16 port, u8 data);
 
-/**
- * @brief Write a 16‑bit value to an I/O port.
- */
+// Write a 16‑bit value to an I/O port.
 void out16(u16 port, u16 data);
 
-/**
- * @brief Write a 32‑bit value to an I/O port.
- */
+// Write a 32‑bit value to an I/O port.
 void out32(u16 port, u32 data);
 
-/* -------------------------------------------------------------------------- */
-/* Memory‑Mapped I/O (MMIO)                                                    */
-/* -------------------------------------------------------------------------- */
-
-/**
- * @brief Read an 8‑bit value from a memory‑mapped I/O address.
- */
+// Memory‑Mapped I/O (MMIO)
+// Read an 8‑bit value from a memory‑mapped I/O address.
 u8 mmin8(void *p);
 
-/**
- * @brief Read a 16‑bit value from a memory‑mapped I/O address.
- */
+// Read a 16‑bit value from a memory‑mapped I/O address.
 u16 mmin16(void *p);
 
-/**
- * @brief Read a 32‑bit value from a memory‑mapped I/O address.
- */
+// Read a 32‑bit value from a memory‑mapped I/O address.
 u32 mmin32(void *p);
 
-/**
- * @brief Write an 8‑bit value to a memory‑mapped I/O address.
- */
+// Read a 64-bit value from a memory‑mapped I/O address.
+u64 mmin64(void *p);
+
+// Write an 8‑bit value to a memory‑mapped I/O address.
 void mmout8(void *p, u8 data);
 
-/**
- * @brief Write a 16‑bit value to a memory‑mapped I/O address.
- */
+// Write a 16‑bit value to a memory‑mapped I/O address.
 void mmout16(void *p, u16 data);
 
-/**
- * @brief Write a 32‑bit value to a memory‑mapped I/O address.
- */
+// Write a 32‑bit value to a memory‑mapped I/O address.
 void mmout32(void *p, u32 data);
 
-/* -------------------------------------------------------------------------- */
-/* CPU Interrupt Control & Halt                                                */
-/* -------------------------------------------------------------------------- */
+// Write a 64‑bit value to a memory‑mapped I/O address.
+void mmout64(void *p, u64 data);
 
-/**
- * @brief Enable CPU interrupts (set IF flag).
- */
-void enableinterrupts(void);
+// CPU Interrupt Control & Halt
+// Enable CPU interrupts (set IF flag).
+void sti(void);
 
-/**
- * @brief Disable CPU interrupts (clear IF flag).
- */
-void disableinterrupts(void);
+// Disable CPU interrupts (clear IF flag).
+void cli(void);
 
-/**
- * @brief Halt the CPU until the next external interrupt.
- */
+// Halt the CPU until the next external interrupt.
 void halt(void);
 
-/**
- * @brief Standard I/O wait helper (alias for iowait).
- */
+// Standard I/O wait helper (alias for iowait).
 void wait(void);
 
-/* -------------------------------------------------------------------------- */
-/* Serial Port Output (COM1)                                                   */
-/* -------------------------------------------------------------------------- */
 
+// Serial Port Output (COM1)
 /**
  * @brief Initialize the serial port for debugging output.
  */

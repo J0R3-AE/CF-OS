@@ -35,8 +35,8 @@
 #include "kernel/fs/ext2.h"
 #include "kernel/fs/install.h"
 
-#include "kernel/sched/sched.h"
-#include "kernel/proc/proc.h"
+#include "kernel/sched/scheduler.h"
+#include "kernel/proc/process.h"
 
 extern void kernel_init(void);
 
@@ -96,7 +96,7 @@ void kmain(u32 magic, multiboot_info_t *mbi)
     log_set_hide_info(0);
     log_set_hide_all(1);
 
-    disableinterrupts();
+    cli();
     KLOG_LOG("Kernel initializing...");
 
     gdt_init();
@@ -141,7 +141,8 @@ void kmain(u32 magic, multiboot_info_t *mbi)
     serial_init(COM1);
     KLOG_LOG("Serial port initialized on COM1");
 
-    enableinterrupts();
+    sti();
+    
     KLOG_LOG("Interrupts enabled");
 
     ata_identify();
