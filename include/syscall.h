@@ -96,7 +96,7 @@ static inline fd_table_t *syscall_get_fd_table(void)
  * User-space libc wrappers
  * -------------------------------------------------------------------------- */
 int print(const char *s);
-int scan(char *buf, int max);
+/* scan() removed; use read(0, ...) for console input */
 int write(int fd, const void *buf, int count);
 int read(int fd, void *buf, int count);
 int open(const char *path, int flags);
@@ -106,6 +106,8 @@ int execve(const char *path, char *const argv[]);
 int readdir(int fd, int index, void *out);
 void exit(int status);
 int shell(void);
+int chdir(const char *path);
+int getcwd(char *buf, int size);
 
 /* --------------------------------------------------------------------------
  * Future reserved range (DO NOT USE YET)

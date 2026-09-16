@@ -1,5 +1,7 @@
 #include "syscall.h"
 #include "kernel/proc/exec.h"
+#include "kernel/mm/heap.h"
+#include "libc/string.h"
 
 /*
  * Kernel syscall helper prototypes.
@@ -13,7 +15,7 @@ extern int ksys_write(int fd, const void *buf, usize count);
 extern int ksys_read(int fd, void *buf, usize count);
 extern int ksys_readdir(int fd, usize index, dirent_t *out);
 extern int ksys_print(const char *s);
-extern int ksys_scan(char *buf, usize count);
+/* ksys_scan removed; use ksys_read(fd=0, ...) */
 
 void syscall_handler(registers_t *regs)
 {
@@ -49,6 +51,13 @@ void syscall_handler(registers_t *regs)
         break;
     }
 
+    case SYS_getppid:
+    {
+        process_t *p = proc_current();
+        regs->eax = p ? p->ppid : ERR_INTERNAL;
+        break;
+    }
+
     case SYS_fork:
         regs->eax = ERR_NOT_SUPPORTED;
         break;
@@ -66,8 +75,48 @@ void syscall_handler(registers_t *regs)
             break;
         }
 
+        /* Resolve relative paths against process cwd */
+        const char *use_path = path;
+        char *tmp_path = NULL;
+        if (path[0] != '/')
+        {
+            process_t *p = proc_current();
+            if (!p)
+            {
+                regs->eax = ERR_INTERNAL;
+                break;
+            }
+
+            size_t cwd_len = strlen(p->cwd);
+            size_t path_len = strlen(path);
+            size_t need = cwd_len + 1 + path_len + 1;
+            tmp_path = malloc(need);
+            if (!tmp_path)
+            {
+                regs->eax = ERR_INTERNAL;
+                break;
+            }
+
+            if (strcmp(p->cwd, "/") == 0)
+            {
+                tmp_path[0] = '/';
+                memcpy(tmp_path + 1, path, path_len + 1);
+            }
+            else
+            {
+                memcpy(tmp_path, p->cwd, cwd_len);
+                tmp_path[cwd_len] = '/';
+                memcpy(tmp_path + cwd_len + 1, path, path_len + 1);
+            }
+
+            use_path = tmp_path;
+        }
+
         struct vnode *vn = NULL;
-        int r = vfs_lookup(path, &vn);
+        int r = vfs_lookup(use_path, &vn);
+        if (tmp_path)
+            free(tmp_path);
+
         if (r < 0 || !vn)
         {
             regs->eax = ERR_NOT_FOUND;
@@ -76,6 +125,125 @@ void syscall_handler(registers_t *regs)
 
         int eret = exec_elf_vnode(vn);
         regs->eax = (eret == 0) ? ERR_SUCCESS : eret;
+        break;
+    }
+
+    case SYS_chdir:
+    {
+        const char *path = (const char *)(uintptr_t)arg1;
+        if (!path || !path[0])
+        {
+            regs->eax = ERR_INVALID_ARGUMENT;
+            break;
+        }
+
+        /* Resolve to absolute path (support relative) */
+        const char *use_path = path;
+        char *tmp_path = NULL;
+        if (path[0] != '/')
+        {
+            process_t *p = proc_current();
+            if (!p)
+            {
+                regs->eax = ERR_INTERNAL;
+                break;
+            }
+
+            size_t cwd_len = strlen(p->cwd);
+            size_t path_len = strlen(path);
+            size_t need = cwd_len + 1 + path_len + 1;
+            tmp_path = malloc(need);
+            if (!tmp_path)
+            {
+                regs->eax = ERR_INTERNAL;
+                break;
+            }
+
+            if (strcmp(p->cwd, "/") == 0)
+            {
+                tmp_path[0] = '/';
+                memcpy(tmp_path + 1, path, path_len + 1);
+            }
+            else
+            {
+                memcpy(tmp_path, p->cwd, cwd_len);
+                tmp_path[cwd_len] = '/';
+                memcpy(tmp_path + cwd_len + 1, path, path_len + 1);
+            }
+
+            use_path = tmp_path;
+        }
+
+        struct vnode *vn = NULL;
+        int r = vfs_lookup(use_path, &vn);
+        if (r != 0 || !vn)
+        {
+            if (tmp_path)
+                free(tmp_path);
+            regs->eax = ERR_NOT_FOUND;
+            break;
+        }
+
+        if (vn->type != VNODE_TYPE_DIR)
+        {
+            if (tmp_path)
+                free(tmp_path);
+            regs->eax = ERR_INVALID_ARGUMENT;
+            break;
+        }
+
+        process_t *p = proc_current();
+        if (!p)
+        {
+            if (tmp_path)
+                free(tmp_path);
+            regs->eax = ERR_INTERNAL;
+            break;
+        }
+
+        /* copy path into process cwd */
+        if (tmp_path)
+        {
+            strncpy(p->cwd, tmp_path, sizeof(p->cwd));
+            p->cwd[sizeof(p->cwd) - 1] = '\0';
+            free(tmp_path);
+        }
+        else
+        {
+            strncpy(p->cwd, use_path, sizeof(p->cwd));
+            p->cwd[sizeof(p->cwd) - 1] = '\0';
+        }
+
+        regs->eax = ERR_SUCCESS;
+        break;
+    }
+
+    case SYS_getcwd:
+    {
+        char *buf = (char *)(uintptr_t)arg1;
+        int size = arg2;
+        if (!buf || size <= 0)
+        {
+            regs->eax = ERR_INVALID_ARGUMENT;
+            break;
+        }
+
+        process_t *p = proc_current();
+        if (!p)
+        {
+            regs->eax = ERR_INTERNAL;
+            break;
+        }
+
+        int len = (int)strlen(p->cwd);
+        if (len + 1 > size)
+        {
+            regs->eax = ERR_INVALID_ARGUMENT;
+            break;
+        }
+
+        memcpy(buf, p->cwd, (size_t)len + 1);
+        regs->eax = ERR_SUCCESS;
         break;
     }
 

@@ -354,6 +354,9 @@ void TTY_backspace(void)
 
 void TTY_putc(char c)
 {
+    /* For debugging, always emit to TTY. WM overlay suppression was
+     * causing terminal output to be hidden; remove the early return so
+     * the shell and debug messages are visible. */
     /* Newline */
     if (c == '\n')
     {

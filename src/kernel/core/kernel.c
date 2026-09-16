@@ -24,6 +24,7 @@
 #include "kernel/drivers/tty.h"
 #include "kernel/drivers/ata.h"
 #include "kernel/drivers/framebuffer.h"
+#include "kernel/drivers/wm.h"
 #include "kernel/drivers/serial.h"
 #include "kernel/drivers/ps2/ps2.h"
 #include "kernel/drivers/keyboard.h"
@@ -90,6 +91,9 @@ void kmain(u32 magic, multiboot_info_t *mbi)
     TTY_set_fb_backend(1);
 
     TTY_init();
+
+    /* Initialize simple framebuffer window manager for debug overlay */
+    wm_init();
 
     printf("Welcome to AescOS!\n");
 

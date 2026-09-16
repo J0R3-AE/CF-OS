@@ -8,6 +8,7 @@
 #include "libc/mem.h"
 #include "libc/errno.h"
 #include "libc/log.h"
+#include "libc/string.h"
 
 #define MAX_PROCESSES 64
 
@@ -87,6 +88,9 @@ void proc_init(void)
     g_boot_process.pd_phys = kernel_pd_phys;
 
     g_boot_process.main_thread = NULL;
+    /* boot process cwd */
+    g_boot_process.cwd[0] = '/';
+    g_boot_process.cwd[1] = '\0';
 
 
     /*
@@ -147,6 +151,15 @@ process_t *proc_create(void)
     process->alive = 1;
 
     process->main_thread = NULL;
+
+    /* inherit parent's cwd */
+    if (parent)
+        strncpy(process->cwd, parent->cwd, sizeof(process->cwd));
+    else
+    {
+        process->cwd[0] = '/';
+        process->cwd[1] = '\0';
+    }
 
     for (int i = SIG_MIN; i <= SIG_MAX; ++i)
 {

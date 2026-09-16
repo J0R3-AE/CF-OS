@@ -4,7 +4,11 @@
 #include <syscall.h>
 
 #define SHELL_LINE_SIZE 256
-#define SHELL_MAX_ARGS 32
+#define SHELL_MAX_ARGS  32
+
+/* -------------------------------------------------------------------------- */
+/* Output                                                                     */
+/* -------------------------------------------------------------------------- */
 
 static void shell_write(const char *s)
 {
@@ -25,12 +29,16 @@ static void shell_write_char(char c)
     write(1, &c, 1);
 }
 
+/* -------------------------------------------------------------------------- */
+/* String helpers                                                             */
+/* -------------------------------------------------------------------------- */
+
 static size_t shell_strlen(const char *s)
 {
-    size_t len = 0;
-
     if (!s)
         return 0;
+
+    size_t len = 0;
 
     while (s[len])
         len++;
@@ -48,8 +56,8 @@ static int shell_streq(const char *a, const char *b)
         if (*a != *b)
             return 0;
 
-        ++a;
-        ++b;
+        a++;
+        b++;
     }
 
     return *a == '\0' && *b == '\0';
@@ -63,6 +71,10 @@ static int shell_isspace(char c)
            c == '\r';
 }
 
+/* -------------------------------------------------------------------------- */
+/* Line handling                                                              */
+/* -------------------------------------------------------------------------- */
+
 static void shell_trim(char *line)
 {
     if (!line)
@@ -72,44 +84,38 @@ static void shell_trim(char *line)
     size_t end = shell_strlen(line);
 
     while (start < end && shell_isspace(line[start]))
-        ++start;
+        start++;
 
     while (end > start && shell_isspace(line[end - 1]))
-        --end;
+        end--;
 
-    if (start > 0)
+    size_t len = end - start;
+
+    if (start != 0)
     {
-        size_t i = 0;
+        size_t i;
 
-        while (start + i < end)
-        {
+        for (i = 0; i < len; i++)
             line[i] = line[start + i];
-            ++i;
-        }
+    }
 
-        line[i] = '\0';
-    }
-    else
-    {
-        line[end] = '\0';
-    }
+    line[len] = '\0';
 }
 
+/* -------------------------------------------------------------------------- */
+/* Command parser                                                             */
+/* -------------------------------------------------------------------------- */
 
 /*
- * Parse one shell command.
- *
  * Supports:
  *
  *   hello world
  *   "hello world"
  *   'hello world'
  *   hello\ world
- *
- * '#' starts a comment when encountered outside quotes.
- *
- * The parser modifies the input buffer in-place.
+ *   echo hello # comment
  */
+
 static int shell_parse(
     char *line,
     char **argv,
@@ -119,126 +125,107 @@ static int shell_parse(
         return 0;
 
     int argc = 0;
-    char *src = line;
+    char *p = line;
 
-    while (*src && argc < max_args - 1)
+    while (*p)
     {
-        while (shell_isspace(*src))
-            ++src;
+        /* Skip whitespace */
+        while (shell_isspace(*p))
+            p++;
 
-        if (!*src)
+        if (!*p)
             break;
 
-        /*
-         * A comment begins outside quotes.
-         */
-        if (*src == '#')
+        /* Comment */
+        if (*p == '#')
             break;
 
-        argv[argc++] = src;
+        if (argc >= max_args - 1)
+            break;
 
-        char *dst = src;
+        argv[argc++] = p;
 
-        int quote = 0;
+        char *out = p;
+        char quote = 0;
 
-        while (*src)
+        while (*p)
         {
-            char c = *src;
-
-            if (quote == 0)
+            /* Inside quotes */
+            if (quote)
             {
-                if (c == '"' || c == '\'')
+                if (*p == quote)
                 {
-                    quote = c;
-                    ++src;
+                    quote = 0;
+                    p++;
                     continue;
                 }
 
-                if (c == '\\')
+                if (*p == '\\' && p[1])
                 {
-                    ++src;
-
-                    if (*src)
-                    {
-                        *dst++ = *src++;
-                        continue;
-                    }
-
-                    break;
-                }
-
-                if (c == '#')
-                {
-                    /*
-                     * End current argument and terminate command.
-                     */
-                    break;
-                }
-
-                if (shell_isspace(c))
-                    break;
-
-                *dst++ = c;
-                ++src;
-                continue;
-            }
-
-            /*
-             * Inside single/double quotes.
-             */
-            if (c == quote)
-            {
-                quote = 0;
-                ++src;
-                continue;
-            }
-
-            if (c == '\\' && quote == '"')
-            {
-                ++src;
-
-                if (*src)
-                {
-                    *dst++ = *src++;
+                    p++;
+                    *out++ = *p++;
                     continue;
                 }
 
+                *out++ = *p++;
+                continue;
+            }
+
+            /* Start quote */
+            if (*p == '"' || *p == '\'')
+            {
+                quote = *p;
+                p++;
+                continue;
+            }
+
+            /* Escape next character */
+            if (*p == '\\')
+            {
+                if (p[1])
+                {
+                    p++;
+                    *out++ = *p++;
+                }
+                else
+                {
+                    p++;
+                }
+
+                continue;
+            }
+
+            /* Comment */
+            if (*p == '#')
                 break;
-            }
 
-            *dst++ = c;
-            ++src;
+            /* Argument separator */
+            if (shell_isspace(*p))
+                break;
+
+            *out++ = *p++;
         }
 
-        *dst = '\0';
-
-        /*
-         * Unterminated quote.
-         */
-        if (quote != 0)
+        if (quote)
         {
             shell_write("minios-sh: unmatched quote\n");
             return -1;
         }
 
-        /*
-         * Skip whitespace after the argument.
-         */
-        while (shell_isspace(*src))
-            ++src;
+        *out = '\0';
 
-        /*
-         * Comment.
-         */
-        if (*src == '#')
+        /* Skip whitespace before the next argument */
+        while (shell_isspace(*p))
+            p++;
+
+        /* Ignore rest of line after comment */
+        if (*p == '#')
             break;
     }
 
     argv[argc] = NULL;
-
     return argc;
 }
-
 
 /* -------------------------------------------------------------------------- */
 /* Builtins                                                                   */
@@ -252,27 +239,25 @@ static void shell_help(void)
         "Builtins:\n"
         "  help                 Show this help\n"
         "  echo [args...]       Print arguments\n"
-        "  exit                 Exit the shell\n"
+        "  cd <dir>             Change directory\n"
+        "  ls [dir]             List directory\n"
+        "  exit                 Exit shell\n"
         "\n"
         "Commands:\n"
         "  command [args...]    Execute an ELF program\n"
         "\n"
-        "Shell syntax:\n"
-        "  \"quoted text\"        Double-quoted argument\n"
-        "  'quoted text'        Single-quoted argument\n"
-        "  \\                     Escape the next character\n"
-        "  # comment            Ignore the rest of the line\n"
+        "Syntax:\n"
+        "  \"quoted text\"        Double quotes\n"
+        "  'quoted text'        Single quotes\n"
+        "  \\                     Escape character\n"
+        "  # comment            Comment\n"
         "\n"
-        "Pipes, redirection, jobs, and background execution are not\n"
-        "available yet.\n"
     );
 }
 
-static void shell_echo(
-    int argc,
-    char **argv)
+static void shell_echo(int argc, char **argv)
 {
-    for (int i = 1; i < argc; ++i)
+    for (int i = 1; i < argc; i++)
     {
         if (i > 1)
             shell_write_char(' ');
@@ -283,9 +268,53 @@ static void shell_echo(
     shell_write_char('\n');
 }
 
+static void shell_cd(int argc, char **argv)
+{
+    if (argc < 2)
+    {
+        shell_write("minios-sh: cd: missing operand\n");
+        return;
+    }
+
+    int r = chdir(argv[1]);
+
+    if (r < 0)
+    {
+        shell_write("minios-sh: cd: failed\n");
+    }
+}
+
+static void shell_ls(int argc, char **argv)
+{
+    const char *path = ".";
+
+    if (argc >= 2)
+        path = argv[1];
+
+    int fd = open(path, VFS_O_RDONLY);
+
+    if (fd < 0)
+    {
+        shell_write("minios-sh: ls: failed to open directory\n");
+        return;
+    }
+
+    dirent_t d;
+    int index = 0;
+
+    while (readdir(fd, index, &d) == 0)
+    {
+        shell_write(d.name);
+        shell_write_char('\n');
+
+        index++;
+    }
+
+    close(fd);
+}
 
 /* -------------------------------------------------------------------------- */
-/* Command execution                                                          */
+/* Builtin dispatch                                                           */
 /* -------------------------------------------------------------------------- */
 
 static int shell_is_builtin(const char *command)
@@ -295,6 +324,8 @@ static int shell_is_builtin(const char *command)
 
     return shell_streq(command, "help") ||
            shell_streq(command, "echo") ||
+           shell_streq(command, "cd")   ||
+           shell_streq(command, "ls")   ||
            shell_streq(command, "exit");
 }
 
@@ -317,6 +348,18 @@ static int shell_builtin(
         return 0;
     }
 
+    if (shell_streq(argv[0], "cd"))
+    {
+        shell_cd(argc, argv);
+        return 0;
+    }
+
+    if (shell_streq(argv[0], "ls"))
+    {
+        shell_ls(argc, argv);
+        return 0;
+    }
+
     if (shell_streq(argv[0], "exit"))
     {
         return 1;
@@ -324,6 +367,10 @@ static int shell_builtin(
 
     return 0;
 }
+
+/* -------------------------------------------------------------------------- */
+/* External command execution                                                */
+/* -------------------------------------------------------------------------- */
 
 static void shell_exec(
     int argc,
@@ -333,34 +380,59 @@ static void shell_exec(
         return;
 
     /*
-     * For now we require an executable path.
-     *
-     * Example:
-     *
-     *   /bin/test
+     * Try exactly what the user typed first.
      */
-    int result =
-        execve(
-            argv[0],
-            argv);
+    int result = execve(argv[0], argv);
+
+    if (result >= 0)
+        return;
 
     /*
-     * execve() should only return on failure.
+     * Try /bin/<command> for bare commands.
      */
-    if (result < 0)
+    if (argv[0][0] != '/')
     {
-        shell_write("minios-sh: failed to execute: ");
-        shell_write(argv[0]);
-        shell_write_char('\n');
+        char path[256];
+
+        size_t n = 0;
+
+        path[n++] = '/';
+        path[n++] = 'b';
+        path[n++] = 'i';
+        path[n++] = 'n';
+        path[n++] = '/';
+
+        size_t i = 0;
+
+        while (argv[0][i] &&
+               n + 1 < sizeof(path))
+        {
+            path[n++] = argv[0][i++];
+        }
+
+        path[n] = '\0';
+
+        result = execve(path, argv);
+
+        if (result >= 0)
+            return;
     }
+
+    shell_write("minios-sh: command not found: ");
+    shell_write(argv[0]);
+    shell_write_char('\n');
 }
+
+/* -------------------------------------------------------------------------- */
+/* Execute command                                                            */
+/* -------------------------------------------------------------------------- */
 
 static void shell_execute(
     int argc,
     char **argv,
     int *should_exit)
 {
-    if (!argc || !argv || !should_exit)
+    if (!argv || !should_exit || argc <= 0)
         return;
 
     if (shell_is_builtin(argv[0]))
@@ -374,38 +446,43 @@ static void shell_execute(
     shell_exec(argc, argv);
 }
 
-
 /* -------------------------------------------------------------------------- */
-/* Main shell loop                                                            */
+/* Main                                                                       */
 /* -------------------------------------------------------------------------- */
 
 void shell_main(void)
 {
     char line[SHELL_LINE_SIZE];
-
     char *argv[SHELL_MAX_ARGS];
 
     for (;;)
     {
+        /*
+         * Always print the prompt before waiting for input.
+         */
         shell_write("MiniOS> ");
 
-        int n =
-            read(
-                0,
-                line,
-                SHELL_LINE_SIZE - 1);
+        /* Debug: indicate we're waiting for input */
+        shell_write("[shell-debug] waiting for input\n");
+
+        int n = read(0, line, SHELL_LINE_SIZE - 1);
+
+        /* Debug: raw input received */
+        shell_write("[shell-debug] raw: '");
+        shell_write(line);
+        shell_write("'\n");
 
         /*
-         * EOF.
+         * EOF / shell terminated.
          */
         if (n == 0)
         {
-            shell_write("\n");
+            shell_write_char('\n');
             break;
         }
 
         /*
-         * Read error.
+         * Input error.
          */
         if (n < 0)
         {
@@ -415,21 +492,32 @@ void shell_main(void)
             continue;
         }
 
+        /*
+         * Always terminate the line ourselves.
+         */
+        if ((size_t)n >= SHELL_LINE_SIZE)
+            n = SHELL_LINE_SIZE - 1;
+
         line[n] = '\0';
 
+        /*
+         * Remove the newline / surrounding whitespace.
+         */
         shell_trim(line);
 
         /*
-         * Empty line.
+         * Empty command.
          */
         if (!line[0])
             continue;
 
-        int argc =
-            shell_parse(
-                line,
-                argv,
-                SHELL_MAX_ARGS);
+        /*
+         * Parse.
+         */
+        int argc = shell_parse(
+            line,
+            argv,
+            SHELL_MAX_ARGS);
 
         if (argc < 0)
             continue;
@@ -437,6 +525,9 @@ void shell_main(void)
         if (argc == 0)
             continue;
 
+        /*
+         * Execute.
+         */
         int should_exit = 0;
 
         shell_execute(
@@ -449,8 +540,7 @@ void shell_main(void)
     }
 
     /*
-     * Your crt0 doesn't expect main().
-     * Keep the shell from returning into an invalid address.
+     * shell_main should never return into an invalid caller.
      */
     for (;;)
     {

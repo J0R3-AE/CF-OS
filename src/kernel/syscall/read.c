@@ -2,6 +2,7 @@
 
 #include "kernel/drivers/tty.h"
 #include "kernel/sched/scheduler.h"
+#include "libc/log.h"
 
 int ksys_read(int fd, void *buf, usize count)
 {
@@ -15,19 +16,23 @@ int ksys_read(int fd, void *buf, usize count)
 
         for (;;)
         {
+            KLOG_INFO("ksys_read: checking TTY ready/eof");
             if (TTY_input_eof())
             {
                 TTY_input_consume();
+                KLOG_INFO("ksys_read: eof detected, returning 0");
                 return 0;
             }
 
             if (TTY_input_ready())
             {
+                KLOG_INFO("ksys_read: TTY ready, reading line");
                 usize n =
                     TTY_readline(out, count);
 
                 TTY_input_consume();
 
+                KLOG_INFO("ksys_read: read %u bytes", (u32)n);
                 return (int)n;
             }
 

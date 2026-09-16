@@ -170,8 +170,13 @@ int signal_fetch(
 int signal_block(thread_sigstate_t *s, const sigset_t *set)
 {
     if (!s || !set) return -EINVAL;
-    /* TODO: atomic OR of mask bits */
-    return ERR_NOT_SUPPORTED;
+
+    /* OR the mask bits into the thread mask */
+    usize n = sizeof(s->mask.bits) / sizeof(s->mask.bits[0]);
+    for (usize i = 0; i < n; ++i)
+        s->mask.bits[i] |= set->bits[i];
+
+    return 0;
 }
 
 /* Unblock signals in 'set' by clearing bits from the thread mask.
@@ -184,8 +189,14 @@ int signal_block(thread_sigstate_t *s, const sigset_t *set)
 int signal_unblock(thread_sigstate_t *s, const sigset_t *set)
 {
     if (!s || !set) return -EINVAL;
-    /* TODO: atomic AND NOT of mask bits and trigger delivery if needed */
-    return ERR_NOT_SUPPORTED;
+
+    /* Clear mask bits specified in set */
+    usize n = sizeof(s->mask.bits) / sizeof(s->mask.bits[0]);
+    for (usize i = 0; i < n; ++i)
+        s->mask.bits[i] &= ~set->bits[i];
+
+    /* TODO: after unblocking we should check for pending signals and wake thread */
+    return 0;
 }
 
 /* Check if any unmasked pending signal exists for fast scheduler checks.
@@ -199,7 +210,31 @@ int signal_unblock(thread_sigstate_t *s, const sigset_t *set)
 int signal_has_pending_unmasked(thread_sigstate_t *s)
 {
     if (!s) return 0;
-    /* TODO: implement efficient check */
+
+    /* Check realtime queue: if any RT entry is not masked return true */
+    if (!rtq_is_empty(&s->rt_queue))
+    {
+        int sig;
+        siginfo_t info;
+        if (rtq_peek(&s->rt_queue, &sig, &info) == 0)
+        {
+            if (!sigismember(&s->mask, sig))
+                return 1;
+        }
+    }
+
+    /* Check pending bitset for any unmasked signal */
+    for (int sig = SIG_MIN; sig <= SIG_MAX; ++sig)
+    {
+        if (!sigismember(&s->pending, sig))
+            continue;
+
+        if (sigismember(&s->mask, sig))
+            continue;
+
+        return 1;
+    }
+
     return 0;
 }
 

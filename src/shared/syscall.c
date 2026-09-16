@@ -18,11 +18,6 @@ int print(const char *s)
     return syscall(SYS_print, (int)(uintptr_t)s, 0, 0);
 }
 
-int scan(char *buf, int max)
-{
-    return syscall(SYS_scan, (int)(uintptr_t)buf, max, 0);
-}
-
 int write(int fd, const void *buf, int count)
 {
     return syscall(SYS_write, fd, (int)(uintptr_t)buf, count);
@@ -56,6 +51,16 @@ int execve(const char *path, char *const argv[])
 int readdir(int fd, int index, void *out)
 {
     return syscall(SYS_readdir, fd, index, (int)(uintptr_t)out);
+}
+
+int chdir(const char *path)
+{
+    return syscall(SYS_chdir, (int)(uintptr_t)path, 0, 0);
+}
+
+int getcwd(char *buf, int size)
+{
+    return syscall(SYS_getcwd, (int)(uintptr_t)buf, size, 0);
 }
 
 void exit(int status)

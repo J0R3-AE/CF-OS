@@ -24,6 +24,7 @@
 #include "kernel/drivers/ata.h"
 #include "kernel/drivers/framebuffer.h"
 #include "kernel/drivers/serial.h"
+#include "kernel/drivers/fbdev.h"
 
 #include "kernel/fs/vfs.h"
 #include "kernel/fs/ramfs.h"
@@ -34,6 +35,7 @@
 
 #include "kernel/sched/scheduler.h"
 #include "kernel/proc/process.h"
+#include "kernel/sched/thread.h"
 #include "kernel/proc/exec.h"
 
 #include "../user/init_elf.h"
@@ -120,6 +122,42 @@ void kernel_init(void)
             tar_extract(root, (void *)user_init_tar_image, user_init_tar_image_size);
         }
 
+        /* Create /dev/fb0 backed by the kernel framebuffer for simple userspace
+         * compositors. Create /dev if missing via vfs_resolve_path/create. */
+        {
+            struct vnode *parent = NULL;
+            const char *leaf = NULL;
+
+            if (vfs_resolve_path("/dev", &parent, &leaf))
+            {
+                /* parent is returned and leaf is allocated */
+                if (parent && parent->ops && parent->ops->create)
+                {
+                    struct vnode *dev_dir = NULL;
+                    if (parent->ops->create(parent, leaf, VNODE_TYPE_DIR, &dev_dir) == 0)
+                    {
+                        KLOG_INFO("Created /dev directory vnode %p", dev_dir);
+                    }
+                }
+
+                free((void *)leaf);
+            }
+
+            struct vnode *dev_dir = NULL;
+            if (vfs_lookup("/dev", &dev_dir) == 0 && dev_dir)
+            {
+                struct vnode *fb_vn = NULL;
+                if (dev_dir->ops->lookup(dev_dir, "fb0", &fb_vn) != 0)
+                {
+                    if (dev_dir->ops->create(dev_dir, "fb0", VNODE_TYPE_DEV, &fb_vn) == 0)
+                    {
+                        fbdev_set_hooks(fb_vn);
+                        KLOG_INFO("Created /dev/fb0 device vnode %p", fb_vn);
+                    }
+                }
+            }
+        }
+
         KLOG_INFO("Attempting vfs lookup for /init");
         struct vnode *init_vn = NULL;
         int lookup_ret = vfs_lookup("/init", &init_vn);
@@ -153,5 +191,17 @@ void kernel_init(void)
 
     KLOG_LOG("Kernel initialization complete, starting scheduler...");
     TTY_clear();
+    /* If serial is initialized (eg. -serial stdio), start a thread to
+     * feed serial input into the keyboard/line layer so programmatic
+     * input via the QEMU serial works. */
+    /* Always start the serial input bridge thread so -serial stdio works
+     * even if loopback tests fail on some platforms. The thread will block
+     * on reads when no data is available. */
+    {
+        thread_t *t = thread_create(serial_input_thread, NULL, 4096);
+        if (t)
+            sched_add(t);
+    }
+
     sched_start();
 }

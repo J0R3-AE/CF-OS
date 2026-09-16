@@ -1,5 +1,11 @@
 #include "kernel/drivers/serial.h"
 #include "kernel/arch/io.h"
+#include "kernel/drivers/keyevent.h"
+#include "kernel/drivers/line.h"
+#include "kernel/sched/thread.h"
+#include "kernel/sched/scheduler.h"
+#include "kernel/drivers/keycodes.h"
+#include "kernel/drivers/tty.h"
 
 /*
  * Replace with your own I/O header if available.
@@ -151,6 +157,31 @@ char serial_read_char(void)
 {
     serial_wait_rx();
     return (char)in8(SERIAL_DATA(g_serial_port));
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* Serial input bridge                                                         */
+/* -------------------------------------------------------------------------- */
+
+void serial_input_thread(void *arg)
+{
+    (void)arg;
+
+    for (;;)
+    {
+        char c = serial_read_char();
+
+        key_event_t ev;
+        ev.type = KEY_EVENT_PRESS;
+        ev.keycode = KEY_NONE;
+        ev.ascii = (uint8_t)c;
+
+        line_handle_keyevent(&ev);
+
+        /* Yield so other threads can run */
+        sched_yield();
+    }
 }
 
 /* -------------------------------------------------------------------------- */

@@ -21,6 +21,9 @@ typedef struct process
 
     struct sigaction sigactions[SIG_MAX + 1];
 
+    /* Current working directory for the process (absolute path) */
+    char cwd[256];
+
 } process_t;
 
 

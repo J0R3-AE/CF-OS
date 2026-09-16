@@ -4,7 +4,7 @@
 #include "syscall.h"
 #include "libc/string.h"
 
-int shell_main(void);
+void shell_main(void);
 
 static const char *art =
     "###########################################################\n"

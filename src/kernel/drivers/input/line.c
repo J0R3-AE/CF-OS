@@ -4,6 +4,9 @@
 #include "kernel/drivers/line.h"
 #include "kernel/drivers/keyevent.h"
 #include "kernel/drivers/tty.h"
+#include "kernel/drivers/wm.h"
+
+#include "libc/log.h"
 
 #include "kernel/sched/thread.h"
 #include "kernel/sched/scheduler.h"
@@ -70,6 +73,13 @@ int line_handle_keyevent(const key_event_t *ev)
     if (ev->type != KEY_EVENT_PRESS)
         return 0;
 
+    /* F12 toggles the simple framebuffer window manager overlay */
+    if (ev->keycode == KEY_F12)
+    {
+        /* disabled: WM toggling interferes with TTY; use debug key elsewhere */
+        return 0;
+    }
+
     uint8_t ch = ev->ascii;
 
     /*
@@ -114,6 +124,9 @@ int line_handle_keyevent(const key_event_t *ev)
         if (line_len == 0)
         {
             g_line_eof = 1;
+            TTY_puts("[line] eof\n");
+            /* Let the scheduler pick the reader thread soon. */
+            sched_yield();
             return 1;
         }
 
@@ -123,7 +136,7 @@ int line_handle_keyevent(const key_event_t *ev)
     /*
      * Enter completes the current line.
      */
-    if (ch == '\n')
+    if (ch == '\n' || ch == '\r')
     {
         if (line_len >= LINE_BUFFER_SIZE)
             line_len = LINE_BUFFER_SIZE - 1;
@@ -132,7 +145,15 @@ int line_handle_keyevent(const key_event_t *ev)
 
         TTY_putc('\n');
 
+        /* Log the completed line for debugging */
+        KLOG_INFO("line: completed '%s' (len=%u)", line_buffer, (u32)line_len);
+
+        TTY_puts("[line] ready\n");
+
         g_line_ready = 1;
+
+        /* Yield so a waiting ksys_read can run promptly. */
+        sched_yield();
 
         return 1;
     }
@@ -222,4 +243,6 @@ void line_consume(void)
 {
     g_line_ready = 0;
     g_line_eof = 0;
+    line_len = 0;
+    line_buffer[0] = '\0';
 }

@@ -56,7 +56,7 @@ USHARED_OBJ := \
 
 # Strip src/kernel/ prefix
 KERNEL_OBJ := \
-	$(patsubst src/kernel/%.asm,$(KERNEL_BUILD)/%.o,$(KERNEL_ASM_SRC)) \
+	$(patsubst src/kernel/%.asm,$(KERNEL_BUILD)/%_asm.o,$(KERNEL_ASM_SRC)) \
 	$(patsubst src/kernel/%.c,$(KERNEL_BUILD)/%.o,$(KERNEL_C_SRC))
 
 # Strip src/user/ prefix
@@ -83,13 +83,16 @@ $(KERNEL_BUILD)/%.o: src/kernel/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(KERNEL_BUILD)/%.o: src/kernel/%.asm
+$(KERNEL_BUILD)/%_asm.o: src/kernel/%.asm
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
+
 $(KERNEL): $(SHARED_OBJ) $(USER_ELF) $(USER_TAR) $(KERNEL_OBJ)
 	@mkdir -p $(dir $@)
-	$(LD) $(LDFLAGS) $(KERNEL_OBJ) $(SHARED_OBJ) -o $@
+	# Use sort to remove duplicate object entries that can cause multiple-definition
+	# linker errors when the same object path appears more than once.
+	$(LD) $(LDFLAGS) $(sort $(KERNEL_OBJ) $(SHARED_OBJ)) -o $@
 	@echo "Built kernel ELF: $@"
 
 # === User ===
