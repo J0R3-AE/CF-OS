@@ -10,6 +10,8 @@ Clearfall is currently in an **early development stage**. Several kernel compone
 
 ![Clearfall Screenshot](doc/images/Example.png)
 
+<small>old screenshot ik </small>
+
 ## Current Development Status
 
 | Component | Status |
@@ -114,6 +116,10 @@ exit(status);
 These declarations describe the intended userland interface. Some operations remain incomplete or may not work reliably until their kernel implementations are fixed.
 
 ## Known Issues and Limitations
+
+### Codebase and Technical Debt
+
+Much of the Clearfall codebase consists of older implementations that no longer fully align with the project's intended architecture. Significant portions require rewriting, refactoring, and reformatting to improve consistency, maintainability, and reliability. Some components may contain temporary solutions, incomplete functionality, or outdated design decisions. As development continues, existing code and interfaces may change substantially as the project moves toward a more consistent and stable architecture.
 
 ### Shell
 
