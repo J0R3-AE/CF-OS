@@ -1,12 +1,14 @@
-# AescOS
+# Clearfall
 
-AescOS is a hobby operating system written in C and assembly for x86. The project explores low-level system development, including kernel initialization, interrupt handling, memory management, device drivers, scheduling, system calls, and filesystem abstractions.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-AescOS is currently in an **early development stage**. Several kernel components and interfaces are implemented, but the system is not yet fully functional. In particular, keyboard input, terminal line handling, and parts of the scheduler are still being debugged.
+Clearfall is a hobby operating system written in C and assembly for x86. The project explores low-level system development, including kernel initialization, interrupt handling, memory management, device drivers, scheduling, system calls, and filesystem abstractions.
+
+Clearfall is currently in an **early development stage**. Several kernel components and interfaces are implemented, but the system is not yet fully functional. In particular, keyboard input, terminal line handling, and parts of the scheduler are still being debugged.
 
 **A working interactive shell is not currently available.** The shell depends on reliable input from the device drivers and correct coordination with the scheduler. Because those components are still faulty, shell input and execution cannot yet be relied upon.
 
-![AescOS Screenshot](doc/images/Example.png)
+![Clearfall Screenshot](doc/images/Example.png)
 
 ## Current Development Status
 
@@ -50,7 +52,7 @@ AescOS is currently in an **early development stage**. Several kernel components
 
 ### Virtual Filesystem
 
-AescOS includes a basic Virtual Filesystem (VFS) abstraction intended to provide a common interface for filesystems and user programs.
+Clearfall includes a basic Virtual Filesystem (VFS) abstraction intended to provide a common interface for filesystems and user programs.
 
 Available or partially implemented operations include:
 
@@ -184,6 +186,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and informati
 
 ## License
 
-AescOS is distributed under the MIT License.
+Clearfall is distributed under the MIT License.
 See [LICENSE](LICENSE.md) for the full license text.
 

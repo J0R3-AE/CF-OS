@@ -1,14 +1,14 @@
-# Contributing to AescOS
+# Contributing to Clearfall
 
-Thank you for your interest in contributing to AescOS!
+Thank you for your interest in contributing to Clearfall!
 
-AescOS is a hobby operating system written in C and assembly for x86. It is an early-stage project focused on kernel development, device drivers, memory management, scheduling, system calls, and filesystem infrastructure.
+Clearfall is a hobby operating system written in C and assembly for x86. It is an early-stage project focused on kernel development, device drivers, memory management, scheduling, system calls, and filesystem infrastructure.
 
 Contributions of code, bug reports, testing, documentation, and technical discussion are welcome.
 
 ## Current Development Status
 
-AescOS is not yet fully functional. Some kernel subsystems have been implemented, but several still require debugging and further development.
+Clearfall is not yet fully functional. Some kernel subsystems have been implemented, but several still require debugging and further development.
 
 **There is currently no working interactive shell.** The keyboard and terminal-input drivers are unreliable, and parts of the scheduler are faulty. These problems prevent the shell from reliably receiving input and resuming after input operations.
 
@@ -91,7 +91,7 @@ Kernel code has different constraints from ordinary user-space programs. Be care
 
 ## Testing
 
-Test changes as thoroughly as the current state of AescOS allows.
+Test changes as thoroughly as the current state of Clearfall allows.
 
 Depending on the change, this may include:
 
@@ -111,8 +111,8 @@ Please ensure that you have the right to submit any code or other material you c
 
 ## Final Notes
 
-AescOS is under active development, and interfaces may change as foundational components are corrected or redesigned.
+Clearfall is under active development, and interfaces may change as foundational components are corrected or redesigned.
 
 The current priority is to make the kernel's existing infrastructure reliable before expanding its features. Contributions that improve correctness, stability, and maintainability are especially valuable.
 
-Thank you for helping improve AescOS!
+Thank you for helping improve Clearfall!
