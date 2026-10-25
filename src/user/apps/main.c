@@ -245,10 +245,9 @@ void main(void)
     print("Hello, World, From Usermode!\n");
     print("This is a simple demo of a usermode application.\n");
     print("It will print a spinning dial to show that it's alive.\n");
-    print("Press Ctrl+C to exit.\n");
+
     int i = 0;
     
-    shell_main();
     while (1)
     {
         char buf[2] = {frames[i % 4], '\0'};

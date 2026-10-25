@@ -162,7 +162,7 @@ void idt_init(void)
     idt_set_gate(44, (u32)irq12, 0x08, 0x8E);
     idt_set_gate(45, (u32)irq13, 0x08, 0x8E);
     idt_set_gate(46, (u32)irq14, 0x08, 0x8E);
-    idt_set_gate(47, (u32)(irq15), 0x08, 0x8E);
+    idt_set_gate(47, (u32)irq15, 0x08, 0x8E);
 
     /* Userland syscall interrupt (ring 3) */
     idt_set_gate(128, (u32)isr128, 0x08, 0xEE);
@@ -183,8 +183,7 @@ void idt_init(void)
  *   n - Interrupt number (0-255)
  *   handler - Function pointer to the handler
  */
-void register_interrupt_handler(u8 n, isr_handler_t handler)
-{
+void register_interrupt_handler(u8 n, isr_handler_t handler){
     interrupt_handlers[n] = handler;
 }
 
@@ -192,11 +191,8 @@ void register_interrupt_handler(u8 n, isr_handler_t handler)
  * Common ISR handler called from assembly
  * Dispatches to registered handlers
  */
-void isr_handler(registers_t *regs)
-{
-
-    if (interrupt_handlers[regs->int_no])
-    {
+void isr_handler(registers_t *regs){
+    if (interrupt_handlers[regs->int_no]){
         interrupt_handlers[regs->int_no](regs);
     }
 }
@@ -208,17 +204,15 @@ void isr_handler(registers_t *regs)
 void irq_handler(registers_t *regs)
 {
     // Send EOI to PIC
-    if (regs->int_no >= 40)
-    {
+    if (regs->int_no >= 40){
         out8(PIC_SLAVE_CMD, PIC_CMD_EOI);
     }
     out8(PIC_MASTER_CMD, PIC_CMD_EOI);
 
-    if (regs->int_no < 256 && interrupt_handlers[regs->int_no])
-    {
+    if (regs->int_no < 256 && interrupt_handlers[regs->int_no]){
         interrupt_handlers[regs->int_no](regs);
     }
-    else
-    {
+    else{
+        KLOG_WARN("Unhandled IRQ %u", regs->int_no);
     }
 }

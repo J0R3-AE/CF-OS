@@ -11,7 +11,7 @@ qemu.log
 qemu_stdout.txt
 
 # Temporary / hold files
-hold/
+tmp/
 
 
 # IDE / OS junk 
