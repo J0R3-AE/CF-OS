@@ -4,9 +4,7 @@
 
 Clearfall is a hobby operating system written in C and assembly for x86. The project explores low-level system development, including kernel initialization, interrupt handling, memory management, device drivers, scheduling, system calls, and filesystem abstractions.
 
-Clearfall is currently in an **early development stage**. Several kernel components and interfaces are implemented, but the system is not yet fully functional. In particular, keyboard input, terminal line handling, and parts of the scheduler are still being debugged.
-
-**A working interactive shell is not currently available.** The shell depends on reliable input from the device drivers and correct coordination with the scheduler. Because those components are still faulty, shell input and execution cannot yet be relied upon.
+Clearfall is an experimental system under active development. Kernel subsystems and userland are evolving, and hardware and filesystem support still require broader testing.
 
 ![Clearfall Screenshot](doc/images/Example.png)
 
@@ -18,12 +16,12 @@ Clearfall is currently in an **early development stage**. Several kernel compone
 |---|---|
 | Kernel initialization | Implemented; ongoing development |
 | Interrupt handling | Basic infrastructure implemented |
-| PS/2 keyboard input | Implemented; needs debugging |
-| Terminal output | Basic implementation available |
+| PS/2 and serial input | Implemented; needs broader testing |
+| Terminal output | VGA text mode and optional framebuffer |
 | System call interface | Implemented; some calls incomplete or unreliable |
 | Virtual filesystem | Basic infrastructure implemented |
 | Scheduler | Partially implemented; issues remain |
-| Interactive shell | Not currently functional |
+| Interactive shell | Basic cooked-input shell and external commands |
 
 ## Features and Components
 
@@ -38,14 +36,17 @@ Clearfall is currently in an **early development stage**. Several kernel compone
 
 ### Input and Device Drivers
 
-- PS/2 keyboard driver with scancode-to-ASCII translation.
-- Keyboard event handling.
-- Terminal input buffering.
-- Serial port initialization and support.
+- PS/2 Set-1 keyboard input with shift, caps-lock, and punctuation mapping
+- COM1 serial input with interrupt and polling fallback
+- Echoed, cooked line input shared by the shell and `scan()`
 
-**Current limitation:** The input path is not fully reliable. Keyboard events, line completion, and waking a thread blocked on input need further debugging.
+**Current limitation:** Input behavior and blocking reads still need broader hardware testing.
 
 ### Terminal and Output
+- Single-cursor TTY with a VGA text-mode fallback
+- Validated boot-provided VBE framebuffer output when available
+- `print()` syscall for user output
+- Serial mirroring for debugging output
 
 - Text terminal abstraction (TTY).
 - Framebuffer-backed terminal output.
@@ -53,6 +54,11 @@ Clearfall is currently in an **early development stage**. Several kernel compone
 - User-facing output through system calls.
 
 ### Virtual Filesystem
+- Virtual File System abstraction layer
+- Basic vnode + file structure
+- File descriptor table per process
+- `open`, `close`, `read`, `write`, `readdir`
+- RAMFS path lookup, directories, file I/O, truncation, and unlink
 
 Clearfall includes a basic Virtual Filesystem (VFS) abstraction intended to provide a common interface for filesystems and user programs.
 
@@ -85,6 +91,8 @@ The kernel provides a system call interface using `int 0x80`.
 - `SYS_read`
 - `SYS_write`
 - `SYS_readdir`
+- `SYS_print`
+- `SYS_scan` (cooked line input)
 
 The completeness and reliability of individual calls depend on their underlying kernel subsystems.
 
@@ -113,9 +121,12 @@ readdir(fd, index, out);
 exit(status);
 ```
 
+RAMFS is in-memory and does not persist across boots. FAT and EXT2 support are still under development.
+
 These declarations describe the intended userland interface. Some operations remain incomplete or may not work reliably until their kernel implementations are fixed.
 
 ## Known Issues and Limitations
+- No command history or cursor movement while editing a line
 
 ### Codebase and Technical Debt
 
@@ -123,11 +134,7 @@ Much of the Clearfall codebase consists of older implementations that no longer 
 
 ### Shell
 
-A functional shell is **not currently available**.
-
-The shell's input loop depends on working keyboard and terminal-input drivers, while its ability to resume after input depends on correct scheduler behavior. Faults in these components prevent reliable interactive input and command processing.
-
-Shell development is therefore on hold until the underlying input and scheduling paths are stable. This is a kernel infrastructure issue rather than simply a missing set of shell commands.
+The shell supports cooked line input and launching standalone commands from `/bin`. Input handling, process lifecycle behavior, and command coverage remain limited and need additional testing.
 
 ### Device Drivers and Input
 
@@ -195,3 +202,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and informati
 Clearfall is distributed under the MIT License.
 See [LICENSE](LICENSE.md) for the full license text.
 
+## Repository Layout
+
+- `src/kernel/` contains kernel code grouped by subsystem.
+- `src/shared/` contains shared freestanding library and syscall code.
+- `src/user/` contains user programs and startup code.
+- `include/kernel/` and `include/libc/` contain public headers.
+- `archive/legacy/` retains unbuilt implementations.

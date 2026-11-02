@@ -1,26 +1,23 @@
-#pragma once
-#include <stdint.h>
-#include <stddef.h>
+#ifndef KERNEL_DRIVERS_CONSOLE_H
+#define KERNEL_DRIVERS_CONSOLE_H
 
-/* init */
-void console_init(uint32_t fb_addr, uint32_t w, uint32_t h,
-                  uint32_t pitch, uint32_t bpp);
+#include "libc/types.h"
 
-/* screen */
+void console_init_vga(void);
+bool console_init_framebuffer(uptr address, u32 width, u32 height,
+                              u32 pitch, u32 bpp);
 void console_clear(void);
-
-/* output */
+void console_clearline(usize row);
 void console_putc(char c);
-void console_puts(const char *s);
-
-/* direct draw */
-void console_putc_at(size_t row, size_t col, char c,
-                     uint32_t fg, uint32_t bg);
-
-/* utilities */
-void console_clearline(size_t row);
+void console_puts(const char *text);
+void console_backspace(void);
 void console_scroll(void);
-
-/* size */
-size_t console_rows(void);
-size_t console_cols(void);
+void console_putc_at(usize row, usize col, char c, u8 foreground,
+                     u8 background);
+void console_set_color(u8 foreground, u8 background);
+void console_get_cursor(usize *row, usize *col);
+void console_set_cursor(usize row, usize col);
+usize console_rows(void);
+usize console_cols(void);
+#endif
+#endif

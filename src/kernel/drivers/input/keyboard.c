@@ -1,351 +1,153 @@
-#include <stdint.h>
-
+#include "kernel/drivers/keyboard.h"
 #include "kernel/drivers/keycodes.h"
 #include "kernel/drivers/keyevent.h"
 #include "kernel/drivers/keymap.h"
 #include "kernel/drivers/line.h"
 #include "kernel/drivers/ps2/ps2.h"
 
-/*
- * PS/2 Set 1 keyboard driver.
- *
- * Responsibilities:
- *   - Decode Set 1 scancodes.
- *   - Handle E0 extended scancodes.
- *   - Track modifier state.
- *   - Track Caps Lock.
- *   - Convert key presses to ASCII through the keymap.
- *   - Produce key_event_t events for the line layer.
- *
- * This driver does NOT:
- *   - Parse shell commands.
- *   - Handle signals.
- *   - Manage TTY state.
- */
+static bool left_shift;
+static bool right_shift;
+static bool caps_lock;
+static bool extended_scancode;
 
-static int left_shift_down  = 0;
-static int right_shift_down = 0;
-static int ctrl_down        = 0;
-static int alt_down         = 0;
-static int caps_lock        = 0;
-
-static int extended_scancode = 0;
-
-
-/*
- * Set 1 base scancode -> keycode.
- *
- * Only make codes are stored here. Release is determined from
- * the high bit of the incoming scancode.
- */
-static const keycode_t scancode_set1[128] =
+static keycode_t translate_scancode(u8 code, bool extended)
 {
-    [0x01] = KEY_ESC,
-
-    [0x02] = KEY_1,
-    [0x03] = KEY_2,
-    [0x04] = KEY_3,
-    [0x05] = KEY_4,
-    [0x06] = KEY_5,
-    [0x07] = KEY_6,
-    [0x08] = KEY_7,
-    [0x09] = KEY_8,
-    [0x0A] = KEY_9,
-    [0x0B] = KEY_0,
-
-    [0x0E] = KEY_BACKSPACE,
-    [0x0F] = KEY_TAB,
-
-    [0x10] = KEY_Q,
-    [0x11] = KEY_W,
-    [0x12] = KEY_E,
-    [0x13] = KEY_R,
-    [0x14] = KEY_T,
-    [0x15] = KEY_Y,
-    [0x16] = KEY_U,
-    [0x17] = KEY_I,
-    [0x18] = KEY_O,
-    [0x19] = KEY_P,
-
-    [0x1C] = KEY_ENTER,
-
-    [0x1E] = KEY_A,
-    [0x1F] = KEY_S,
-    [0x20] = KEY_D,
-    [0x21] = KEY_F,
-    [0x22] = KEY_G,
-    [0x23] = KEY_H,
-    [0x24] = KEY_J,
-    [0x25] = KEY_K,
-    [0x26] = KEY_L,
-
-    [0x2A] = KEY_LSHIFT,
-
-    [0x2C] = KEY_Z,
-    [0x2D] = KEY_X,
-    [0x2E] = KEY_C,
-    [0x2F] = KEY_V,
-    [0x30] = KEY_B,
-    [0x31] = KEY_N,
-    [0x32] = KEY_M,
-
-    [0x36] = KEY_RSHIFT,
-    [0x38] = KEY_LALT,
-
-    [0x39] = KEY_SPACE,
-
-    [0x3A] = KEY_CAPSLOCK,
-
-    [0x3B] = KEY_F1,
-    [0x3C] = KEY_F2,
-    [0x3D] = KEY_F3,
-    [0x3E] = KEY_F4,
-    [0x3F] = KEY_F5,
-    [0x40] = KEY_F6,
-    [0x41] = KEY_F7,
-    [0x42] = KEY_F8,
-    [0x43] = KEY_F9,
-    [0x44] = KEY_F10,
-    [0x57] = KEY_F11,
-    [0x58] = KEY_F12,
-};
-
-
-/*
- * Translate a normal Set 1 scancode.
- */
-static keycode_t translate_scancode(uint8_t code)
-{
-    if (code >= 128)
-        return KEY_NONE;
-
-    return scancode_set1[code];
-}
-
-
-/*
- * Translate E0-prefixed scancodes.
- */
-static keycode_t translate_extended_scancode(uint8_t code)
-{
-    switch (code)
+    if (extended)
     {
-        case 0x48:
-            return KEY_UP;
-
-        case 0x50:
-            return KEY_DOWN;
-
-        case 0x4B:
-            return KEY_LEFT;
-
-        case 0x4D:
-            return KEY_RIGHT;
-
-        /*
-         * Right Ctrl uses E0 1D.
-         * We only have KEY_LCTRL in your current keycodes,
-         * so represent it as Ctrl for now.
-         */
-        case 0x1D:
-            return KEY_LCTRL;
-
-        /*
-         * Right Alt / AltGr uses E0 38.
-         * Again, your current keycodes only define LALT.
-         */
-        case 0x38:
-            return KEY_LALT;
-
-        default:
-            return KEY_NONE;
-    }
-}
-
-
-/*
- * Check whether Shift is currently held.
- */
-static int shift_is_down(void)
-{
-    return left_shift_down || right_shift_down;
-}
-
-
-/*
- * Update modifier state.
- */
-static void update_modifier_state(
-    keycode_t key,
-    int release)
-{
-    switch (key)
-    {
-        case KEY_LSHIFT:
-            left_shift_down = !release;
-            break;
-
-        case KEY_RSHIFT:
-            right_shift_down = !release;
-            break;
-
-        case KEY_LCTRL:
-            ctrl_down = !release;
-            break;
-
-        case KEY_LALT:
-            alt_down = !release;
-            break;
-
-        case KEY_CAPSLOCK:
-            /*
-             * Caps Lock changes state on press only.
-             */
-            if (!release)
-                caps_lock = !caps_lock;
-            break;
-
-        default:
-            break;
-    }
-}
-
-
-/*
- * Translate a keycode into ASCII while respecting
- * Shift and Caps Lock.
- */
-static uint8_t translate_ascii(keycode_t key)
-{
-    uint8_t base;
-
-    base = keymap_get_ascii(key);
-
-    if (!base)
-        return 0;
-
-    /*
-     * Letters:
-     *
-     * Shift XOR Caps Lock determines uppercase.
-     */
-    if (base >= 'a' && base <= 'z')
-    {
-        int uppercase =
-            shift_is_down() ^ caps_lock;
-
-        if (uppercase)
-            return (uint8_t)(base - 'a' + 'A');
-
-        return base;
-    }
-
-    /*
-     * Number-row / punctuation Shift mappings.
-     */
-    if (shift_is_down())
-    {
-        switch (key)
+        switch (code)
         {
-            case KEY_1: return '!';
-            case KEY_2: return '@';
-            case KEY_3: return '#';
-            case KEY_4: return '$';
-            case KEY_5: return '%';
-            case KEY_6: return '^';
-            case KEY_7: return '&';
-            case KEY_8: return '*';
-            case KEY_9: return '(';
-            case KEY_0: return ')';
-
-            default:
-                break;
+        case 0x1C: return KEY_ENTER;
+        case 0x1D: return KEY_RCTRL;
+        case 0x38: return KEY_RALT;
+        case 0x47: return KEY_HOME;
+        case 0x48: return KEY_UP;
+        case 0x4B: return KEY_LEFT;
+        case 0x4D: return KEY_RIGHT;
+        case 0x4F: return KEY_END;
+        case 0x50: return KEY_DOWN;
+        case 0x53: return KEY_DELETE;
+        default: return KEY_NONE;
         }
     }
 
-    /*
-     * Ctrl+letter.
-     *
-     * This is especially important for the TTY:
-     *
-     *   Ctrl+C = 0x03
-     *   Ctrl+D = 0x04
-     *   Ctrl+Z = 0x1A
-     *
-     * The line/TTY layer can turn these into signals later.
-     */
-    if (ctrl_down && base >= 'a' && base <= 'z')
+    switch (code)
     {
-        return (uint8_t)(base - 'a' + 1);
+    case 0x01: return KEY_ESC;
+    case 0x02: return KEY_1;
+    case 0x03: return KEY_2;
+    case 0x04: return KEY_3;
+    case 0x05: return KEY_4;
+    case 0x06: return KEY_5;
+    case 0x07: return KEY_6;
+    case 0x08: return KEY_7;
+    case 0x09: return KEY_8;
+    case 0x0A: return KEY_9;
+    case 0x0B: return KEY_0;
+    case 0x0C: return KEY_MINUS;
+    case 0x0D: return KEY_EQUALS;
+    case 0x0E: return KEY_BACKSPACE;
+    case 0x0F: return KEY_TAB;
+    case 0x10: return KEY_Q;
+    case 0x11: return KEY_W;
+    case 0x12: return KEY_E;
+    case 0x13: return KEY_R;
+    case 0x14: return KEY_T;
+    case 0x15: return KEY_Y;
+    case 0x16: return KEY_U;
+    case 0x17: return KEY_I;
+    case 0x18: return KEY_O;
+    case 0x19: return KEY_P;
+    case 0x1A: return KEY_LEFT_BRACKET;
+    case 0x1B: return KEY_RIGHT_BRACKET;
+    case 0x1C: return KEY_ENTER;
+    case 0x1D: return KEY_LCTRL;
+    case 0x1E: return KEY_A;
+    case 0x1F: return KEY_S;
+    case 0x20: return KEY_D;
+    case 0x21: return KEY_F;
+    case 0x22: return KEY_G;
+    case 0x23: return KEY_H;
+    case 0x24: return KEY_J;
+    case 0x25: return KEY_K;
+    case 0x26: return KEY_L;
+    case 0x27: return KEY_SEMICOLON;
+    case 0x28: return KEY_APOSTROPHE;
+    case 0x29: return KEY_GRAVE;
+    case 0x2A: return KEY_LSHIFT;
+    case 0x2B: return KEY_BACKSLASH;
+    case 0x2C: return KEY_Z;
+    case 0x2D: return KEY_X;
+    case 0x2E: return KEY_C;
+    case 0x2F: return KEY_V;
+    case 0x30: return KEY_B;
+    case 0x31: return KEY_N;
+    case 0x32: return KEY_M;
+    case 0x33: return KEY_COMMA;
+    case 0x34: return KEY_PERIOD;
+    case 0x35: return KEY_SLASH;
+    case 0x36: return KEY_RSHIFT;
+    case 0x38: return KEY_LALT;
+    case 0x39: return KEY_SPACE;
+    case 0x3A: return KEY_CAPSLOCK;
+    default: return KEY_NONE;
     }
-
-    return base;
 }
 
-
-/*
- * Main PS/2 keyboard callback.
- */
-void keyboard_handle_scancode(uint8_t sc)
+void keyboard_handle_scancode(u8 scancode)
 {
-    uint8_t raw = sc;
-    uint8_t code;
-    int release;
+    key_event_t event;
     keycode_t key;
-    key_event_t ev;
+    bool released;
 
-    if (raw == 0xE0)
+    if (scancode == 0xE0)
     {
-        extended_scancode = 1;
+        extended_scancode = true;
+        return;
+    }
+    if (scancode == 0xE1)
+    {
+        extended_scancode = false;
         return;
     }
 
-    if (raw == 0xE1)
+    released = (scancode & 0x80) != 0;
+    key = translate_scancode(scancode & 0x7F, extended_scancode);
+    extended_scancode = false;
+
+    if (key == KEY_LSHIFT)
     {
-        extended_scancode = 0;
+        left_shift = !released;
         return;
     }
-
-    release = (raw & 0x80) != 0;
-    code = raw & 0x7F;
-
-    if (extended_scancode)
+    if (key == KEY_RSHIFT)
     {
-        key = translate_extended_scancode(code);
-        extended_scancode = 0;
+        right_shift = !released;
+        return;
     }
-    else
+    if (key == KEY_CAPSLOCK)
     {
-        key = translate_scancode(code);
+        if (!released)
+            caps_lock = !caps_lock;
+        return;
     }
-
-    if (key == KEY_NONE)
+    if (key == KEY_NONE || key == KEY_ESC ||
+        key == KEY_LCTRL || key == KEY_RCTRL ||
+        key == KEY_LALT || key == KEY_RALT)
         return;
 
-    update_modifier_state(key, release);
-
-    ev.type = release
-        ? KEY_EVENT_RELEASE
-        : KEY_EVENT_PRESS;
-
-    ev.keycode = key;
-    ev.ascii = release ? 0 : translate_ascii(key);
-
-    line_handle_keyevent(&ev);
+    event.keycode = key;
+    event.type = released ? KEY_EVENT_RELEASE : KEY_EVENT_PRESS;
+    event.ascii = released ? 0 :
+        keymap_translate_ascii(key, left_shift || right_shift, caps_lock);
+    line_handle_keyevent(&event);
 }
 
-/*
- * Initialize keyboard state and register the PS/2 callback.
- */
 void keyboard_init(void)
 {
-    left_shift_down  = 0;
-    right_shift_down = 0;
-    ctrl_down        = 0;
-    alt_down         = 0;
-    caps_lock        = 0;
-    extended_scancode = 0;
-
-    ps2_register_keyboard_callback(
-        keyboard_handle_scancode);
+    left_shift = false;
+    right_shift = false;
+    caps_lock = false;
+    extended_scancode = false;
+    line_reset();
+    ps2_register_keyboard_callback(keyboard_handle_scancode);
 }

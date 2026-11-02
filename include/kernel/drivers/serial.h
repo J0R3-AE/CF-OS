@@ -30,22 +30,15 @@
 /* -------------------------------------------------------------------------- */
 
 bool serial_init(u16 port);
-
 bool serial_is_initialized(void);
-
 void serial_set_port(u16 port);
 u16 serial_get_port(void);
-
 void serial_write_char(char c);
 void serial_write(const char *str);
 void serial_write_line(const char *str);
-
 char serial_read_char(void);
-
 void serial_write_hex(u32 value);
 void serial_write_dec(u32 value);
-
 void serial_clear(void);
-
 int serial_received(void);
 int serial_transmit_empty(void);

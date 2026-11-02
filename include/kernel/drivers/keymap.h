@@ -1,9 +1,9 @@
 #ifndef KEYMAP_H
 #define KEYMAP_H
 
-#include <stdint.h>
+#include "libc/types.h"
 #include "keycodes.h"
 
-uint8_t keymap_get_ascii(keycode_t key);
+u8 keymap_translate_ascii(keycode_t key, bool shift, bool caps_lock);
 
 #endif

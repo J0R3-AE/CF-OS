@@ -7,234 +7,105 @@
 #include "libc/errno.h"
 #include "kernel/mm/heap.h"
 #include "kernel/proc/exec.h"
+#include "vfs_internal.h"
 
-// Globals
+extern const struct file_ops vfs_generic_file_ops;
 
-Link g_fs_types; // intrusive FS regi
-static struct vnode *g_root_vnode = NULL;
+Link g_fs_types;
+static struct vnode *g_root_vnode;
 
-// File ops
-
-static int vfs_generic_read(struct file *f, void *buf, usize len, usize *out);
-static int vfs_generic_write(struct file *f, const void *buf, usize len, usize *out);
-static int vfs_generic_seek(struct file *f, usize off);
-static int vfs_generic_close(struct file *f);
-
-const struct file_ops vfs_generic_file_ops = {
-    .read = vfs_generic_read,
-    .write = vfs_generic_write,
-    .seek = vfs_generic_seek,
-    .close = vfs_generic_close,
-};
-
-// FS registry
 int vfs_register_fs(struct fs_type *fst)
 {
-    if (!fst || !fst->name)
+    if (!fst || !fst->name || !fst->name[0])
         return ERR_INVALID_ARGUMENT;
+
+    struct fs_type *registered;
+    ListForEachEntry(registered, g_fs_types, link)
+    {
+        if (strcmp(registered->name, fst->name) == 0)
+            return ERR_ALREADY_EXISTS;
+    }
 
     LinkInit(&fst->link);
     LinkBefore(&g_fs_types, &fst->link);
-
     return ERR_SUCCESS;
 }
 
 static struct fs_type *find_fs_type(const char *name)
 {
-    struct fs_type *it;
-    ListForEachEntry(it, g_fs_types, link)
+    if (!name)
+        return NULL;
+
+    struct fs_type *registered;
+    ListForEachEntry(registered, g_fs_types, link)
     {
-        if (strcmp(it->name, name) == 0)
-            return it;
+        if (strcmp(registered->name, name) == 0)
+            return registered;
     }
 
     return NULL;
 }
 
-// Root vnode
 int vfs_set_root(struct vnode *root)
 {
     g_root_vnode = root;
     return ERR_SUCCESS;
 }
 
-struct vnode *vfs_get_root(void) { return g_root_vnode; }
-
-// Lookup helpers
-static int vfs_lookup_component(struct vnode *dir, const char *name, struct vnode **out)
+struct vnode *vfs_get_root(void)
 {
-    if (!dir || !name || !out)
-        return ERR_INVALID_ARGUMENT;
-    if (!dir->ops || !dir->ops->lookup)
-        return ERR_ADDRESS_IN_USE;
-    return dir->ops->lookup(dir, name, out);
+    return g_root_vnode;
 }
 
-int vfs_lookup(const char *path, struct vnode **out)
-{
-    if (!path || !out)
-        return ERR_INVALID_ARGUMENT;
-    if (path[0] != '/')
-        return ERR_ADDRESS_IN_USE;
-    struct vnode *cur = g_root_vnode;
-    if (!cur)
-        return ERR_ADDRESS_IN_USE;
-    const char *p = path + 1;
-    char name[64];
-
-    while (*p)
-    {
-        usize len = 0;
-
-        while (p[len] && p[len] != '/' && len < sizeof(name) - 1)
-        {
-            name[len] = p[len];
-            len++;
-        }
-        name[len] = '\0';
-
-        if (len == 0)
-        {
-            p++;
-            continue;
-        }
-
-        struct vnode *next = NULL;
-        int r = vfs_lookup_component(cur, name, &next);
-        if (r != 0)
-            return r;
-
-        cur = next;
-        p += (p[len] == '/') ? (len + 1) : len;
-    }
-
-    *out = cur;
-
-    return ERR_SUCCESS;
-}
-
-struct vnode *vfs_resolve(const char *path)
-{
-    struct vnode *vn = NULL;
-    if (vfs_lookup(path, &vn) == 0)
-        return vn;
-    return NULL;
-}
-
-// Path resolve
-struct vnode *vfs_resolve_path(const char *path, struct vnode **parent_out, const char **leaf_name_out)
-{
-    if (!path || !parent_out || !leaf_name_out)
-        return NULL;
-    if (path[0] != '/')
-        return NULL;
-    struct vnode *cur = g_root_vnode;
-    if (!cur)
-        return NULL;
-    const char *p = path + 1;
-
-    while (*p)
-    {
-        char name[64];
-        usize len = 0;
-
-        while (p[len] && p[len] != '/' && len < sizeof(name) - 1)
-        {
-            name[len] = p[len];
-            len++;
-        }
-
-        name[len] = '\0';
-
-        if (len == 0)
-        {
-            p++;
-            continue;
-        }
-
-        bool has_more = (p[len] == '/');
-        if (!has_more)
-        {
-            char *leaf;
-            size_t len = strlen(name);
-
-            leaf = malloc(len + 1);
-
-            if (leaf)
-                memcpy(leaf, name, len + 1);
-
-            if (!leaf)
-                return NULL;
-
-            *parent_out = cur;
-            *leaf_name_out = leaf;
-            return cur;
-        }
-
-        if (!cur->ops || !cur->ops->lookup)
-            return NULL;
-        struct vnode *next = NULL;
-        int r = cur->ops->lookup(cur, name, &next);
-        if (r != 0)
-            return NULL;
-
-        cur = next;
-        p += len + 1;
-    }
-
-    return NULL;
-}
-
-// Open / close
 int vfs_open(const char *path, u32 flags, struct file **out)
 {
     if (!path || !out)
         return ERR_INVALID_ARGUMENT;
 
+    *out = NULL;
     struct vnode *vn = NULL;
-    int r = vfs_lookup(path, &vn);
-
-    if (r != 0 && (flags & VFS_O_CREATE))
+    int result = vfs_lookup(path, &vn);
+    if (result == ERR_NOT_FOUND && (flags & VFS_O_CREATE))
     {
+        usize path_len = strlen(path);
+        if (path_len && path[path_len - 1] == '/')
+            return ERR_NOT_DIRECTORY;
+
         struct vnode *parent = NULL;
-        const char *leaf = NULL;
+        char *leaf = NULL;
+        result = vfs_resolve_parent_path(path, &parent, &leaf);
+        if (result != ERR_SUCCESS)
+            return result;
 
-        if (!vfs_resolve_path(path, &parent, &leaf))
-            return ERR_ADDRESS_IN_USE;
-
-        if (!parent || !leaf || leaf[0] == '\0')
+        if (!parent || !leaf || !parent->ops || !parent->ops->create)
         {
             free((void *)leaf);
-            return ERR_ADDRESS_IN_USE;
+            return ERR_NOT_SUPPORTED;
         }
 
-        if (!parent->ops || !parent->ops->create)
-        {
-            free((void *)leaf);
-            return ERR_ADDRESS_IN_USE;
-        }
-
-        r = parent->ops->create(parent, leaf, VNODE_TYPE_FILE, &vn);
+        result = parent->ops->create(parent, leaf, VNODE_TYPE_FILE, &vn);
         free((void *)leaf);
-
-        if (r != 0)
-            return r;
+        if (result != ERR_SUCCESS)
+            return result;
     }
-    else if (r != 0)
+    else if (result != ERR_SUCCESS)
     {
-        return r;
+        return result;
     }
 
-    struct file *f = calloc(1, sizeof(*f));
-    if (!f)
-        return ENOMEM;
+    if (!vn)
+        return ERR_INTERNAL;
 
-    f->vn = vn;
-    f->offset = 0;
-    f->flags = flags;
-    f->ops = &vfs_generic_file_ops;
+    struct file *file = calloc(1, sizeof(*file));
+    if (!file)
+        return ERR_OUT_OF_MEMORY;
 
-    *out = f;
+    vnode_ref(vn);
+    file->vn = vn;
+    file->flags = flags;
+    file->ops = &vfs_generic_file_ops;
+    file->refcount = 1;
+    *out = file;
     return ERR_SUCCESS;
 }
 
@@ -242,100 +113,112 @@ struct file *vfs_open_vnode(struct vnode *vn)
 {
     if (!vn)
         return NULL;
-    struct file *f = calloc(1, sizeof(*f));
-    if (!f)
+
+    struct file *file = calloc(1, sizeof(*file));
+    if (!file)
         return NULL;
 
-    f->vn = vn;
-    f->offset = 0;
-    f->flags = 0;
-    f->ops = &vfs_generic_file_ops;
-
-    return f;
+    vnode_ref(vn);
+    file->vn = vn;
+    file->ops = &vfs_generic_file_ops;
+    file->refcount = 1;
+    return file;
 }
 
-int vfs_close(struct file *f)
+int vfs_stat(const char *path, vfs_stat_t *stat)
 {
-    if (!f)
-        return ERR_SUCCESS;
-
-    free(f);
-    return ERR_SUCCESS;
-}
-
-// File ops
-static int vfs_generic_read(struct file *f, void *buf, usize len, usize *out)
-{
-    if (!f || !f->vn || !f->vn->ops || !f->vn->ops->read)
-        return ERR_INVALID_ARGUMENT;
-    usize done = 0;
-    int r = f->vn->ops->read(f->vn, buf, f->offset, len, &done);
-    if (r == 0)
-        f->offset += done;
-    if (out)
-        *out = done;
-    return r;
-}
-
-static int vfs_generic_write(struct file *f, const void *buf, usize len, usize *out)
-{
-    if (!f || !f->vn || !f->vn->ops || !f->vn->ops->write)
+    if (!path || !stat)
         return ERR_INVALID_ARGUMENT;
 
-    usize done = 0;
-    int r = f->vn->ops->write(f->vn, buf, f->offset, len, &done);
-    if (r == 0)
-        f->offset += done;
-    if (out)
-        *out = done;
-    return r;
+    struct vnode *vn = NULL;
+    int result = vfs_lookup(path, &vn);
+    if (result != ERR_SUCCESS)
+        return result;
+    if (!vn->ops || !vn->ops->getattr)
+        return ERR_NOT_SUPPORTED;
+
+    return vn->ops->getattr(vn, stat);
 }
 
-static int vfs_generic_seek(struct file *f, usize off)
+int vfs_mkdir(const char *path)
 {
-    if (!f)
+    if (!path)
         return ERR_INVALID_ARGUMENT;
 
-    f->offset = off;
-    return ERR_SUCCESS;
+    struct vnode *parent = NULL;
+    char *leaf = NULL;
+    int result = vfs_resolve_parent_path(path, &parent, &leaf);
+    if (result != ERR_SUCCESS)
+        return result;
+
+    if (!parent || parent->type != VNODE_TYPE_DIR)
+    {
+        result = ERR_NOT_DIRECTORY;
+    }
+    else if (!parent->ops || !parent->ops->create)
+    {
+        result = ERR_NOT_SUPPORTED;
+    }
+    else
+    {
+        struct vnode *created = NULL;
+        result = parent->ops->create(parent, leaf, VNODE_TYPE_DIR, &created);
+        if (result == ERR_SUCCESS && !created)
+            result = ERR_INTERNAL;
+    }
+
+    free((void *)leaf);
+    return result;
 }
 
-static int vfs_generic_close(struct file *f)
+int vfs_unlink(const char *path)
 {
-    return vfs_close(f);
-}
-
-// Public read/write/readdir
-int vfs_read(struct file *f, void *buf, usize len, usize *out)
-{
-    if (!f || !f->ops || !f->ops->read)
+    if (!path)
         return ERR_INVALID_ARGUMENT;
 
-    return f->ops->read(f, buf, len, out);
+    usize path_len = strlen(path);
+    if (path_len > 1 && path[path_len - 1] == '/')
+    {
+        struct vnode *target = NULL;
+        int lookup_result = vfs_lookup(path, &target);
+        if (lookup_result != ERR_SUCCESS)
+            return lookup_result;
+        if (target->type != VNODE_TYPE_DIR)
+            return ERR_NOT_DIRECTORY;
+    }
+
+    struct vnode *parent = NULL;
+    char *leaf = NULL;
+    int result = vfs_resolve_parent_path(path, &parent, &leaf);
+    if (result != ERR_SUCCESS)
+        return result;
+
+    if (!parent || parent->type != VNODE_TYPE_DIR)
+    {
+        result = ERR_NOT_DIRECTORY;
+    }
+    else if (!parent->ops || !parent->ops->unlink)
+    {
+        result = ERR_NOT_SUPPORTED;
+    }
+    else
+    {
+        result = parent->ops->unlink(parent, leaf);
+    }
+
+    free((void *)leaf);
+    return result;
 }
 
-int vfs_write(struct file *f, const void *buf, usize len, usize *out)
+int vfs_mount(const char *fs_name, const char *source, const char *target,
+              const char *opts)
 {
-    if (!f || !f->ops || !f->ops->write)
+    if (!fs_name)
         return ERR_INVALID_ARGUMENT;
 
-    return f->ops->write(f, buf, len, out);
-}
-
-int vfs_readdir(struct vnode *vn, usize index, const char **name_out, vnode_type_t *type_out)
-{
-    if (!vn || !vn->ops || !vn->ops->readdir)
-        return ERR_ADDRESS_IN_USE;
-
-    return vn->ops->readdir(vn, index, name_out, type_out);
-}
-
-// Mount
-int vfs_mount(const char *fs_name, const char *source, const char *target, const char *opts)
-{
     struct fs_type *fst = find_fs_type(fs_name);
     if (!fst)
-        return ERR_ADDRESS_IN_USE;
+        return ERR_NOT_FOUND;
 
     return mount_do_mount(fst, source, target, opts);
 }
@@ -345,57 +228,59 @@ int vfs_unmount(const char *target)
     return mount_do_unmount(target);
 }
 
-// Exec
 int vfs_create_exec(const char *path, exec_fn_t fn)
 {
-    if (!path)
+    if (!path || !fn)
         return ERR_INVALID_ARGUMENT;
 
+    usize path_len = strlen(path);
+    if (path_len && path[path_len - 1] == '/')
+        return ERR_NOT_DIRECTORY;
+
     struct vnode *parent = NULL;
-    const char *name = NULL;
+    char *leaf = NULL;
+    int result = vfs_resolve_parent_path(path, &parent, &leaf);
+    if (result != ERR_SUCCESS)
+        return result;
 
-    if (!vfs_resolve_path(path, &parent, &name))
-        return ERR_ADDRESS_IN_USE;
-
-    if (!parent || !name || name[0] == '\0')
+    if (!parent || parent->type != VNODE_TYPE_DIR)
     {
-        free((void *)name);
-        return ERR_ADDRESS_IN_USE;
+        result = ERR_NOT_DIRECTORY;
+    }
+    else if (!parent->ops || !parent->ops->create)
+    {
+        result = ERR_NOT_SUPPORTED;
+    }
+    else
+    {
+        struct vnode *node = NULL;
+        result = parent->ops->create(parent, leaf, VNODE_TYPE_EXEC, &node);
+        if (result == ERR_SUCCESS)
+        {
+            if (!node)
+                result = ERR_INTERNAL;
+            else
+                node->exec = fn;
+        }
     }
 
-    if (!parent->ops || !parent->ops->create)
-    {
-        free((void *)name);
-        return ERR_ADDRESS_IN_USE;
-    }
-
-    struct vnode *node = NULL;
-    int r = parent->ops->create(parent, name, VNODE_TYPE_EXEC, &node);
-
-    free((void *)name);
-
-    if (r != 0)
-        return r;
-
-    node->exec = fn;
-    return ERR_SUCCESS;
+    free((void *)leaf);
+    return result;
 }
 
 int vfs_exec(const char *path)
 {
     struct vnode *vn = NULL;
-    int r = vfs_lookup(path, &vn);
-    if (r != 0)
-        return r;
+    int result = vfs_lookup(path, &vn);
+    if (result != ERR_SUCCESS)
+        return result;
 
-    // functi
     if (vn->type == VNODE_TYPE_EXEC && vn->exec)
     {
         vn->exec(NULL);
-        return 0;
+        return ERR_SUCCESS;
     }
 
-    // file-bac
     return exec_elf_vnode(vn);
 }
 
@@ -404,7 +289,5 @@ int vfs_chroot(struct vnode *new_root)
     if (!new_root)
         return ERR_INVALID_ARGUMENT;
 
-    g_root_vnode = new_root;
-
-    return ERR_SUCCESS;
+    return vfs_set_root(new_root);
 }

@@ -1,8 +1,7 @@
 #ifndef VGA_H
 #define VGA_H
 
-#include <stddef.h>
-#include <stdint.h>
+#include "libc/types.h"
 
 #define VGA_WIDTH  80
 #define VGA_HEIGHT 25
@@ -28,17 +27,11 @@ typedef enum
     VGA_WHITE = 15
 } vga_color_t;
 
-void vga_init(void);
-void vga_clear(void);
-
-void vga_set_color(vga_color_t fg, vga_color_t bg);
-uint8_t vga_make_color(vga_color_t fg, vga_color_t bg);
-
-void vga_putc(char c);
-void vga_write(const char *str);
-void vga_write_n(const char *str, size_t len);
-
-void vga_set_cursor(size_t row, size_t col);
-void vga_get_cursor(size_t *row, size_t *col);
+void vga_text_init(void);
+void vga_text_clear(u8 foreground, u8 background);
+void vga_text_put_cell(usize row, usize col, char character,
+                       u8 foreground, u8 background);
+void vga_text_scroll(u8 foreground, u8 background);
+void vga_text_set_cursor(usize row, usize col);
 
 #endif

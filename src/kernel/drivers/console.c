@@ -1,117 +1,236 @@
 #include "kernel/drivers/console.h"
 #include "kernel/drivers/framebuffer.h"
+#include "kernel/drivers/vga.h"
 #include "gui/font.h"
-#include "libc/mem.h"
-#include <stdint.h>
 
-#define FW 8
-#define FH 16
+#define FONT_WIDTH 8
+#define FONT_HEIGHT 16
 
-static uint32_t fg = 0xFFFFFF;
-static uint32_t bg = 0x000000;
-
-static size_t cur_x = 0;
-static size_t cur_y = 0;
-
-/* size */
-size_t console_rows(void) { return framebuffer_height() / FH; }
-size_t console_cols(void) { return framebuffer_width() / FW; }
-
-/* pixel */
-static inline void putpixel(int x, int y, uint32_t c)
+typedef enum
 {
-    framebuffer_putpixel(x, y, c);
+    CONSOLE_VGA,
+    CONSOLE_FRAMEBUFFER
+} console_backend_t;
+
+static console_backend_t backend = CONSOLE_VGA;
+static usize cursor_row;
+static usize cursor_col;
+static usize rows = VGA_HEIGHT;
+static usize cols = VGA_WIDTH;
+static u8 foreground = VGA_LIGHT_GREY;
+static u8 background = VGA_BLACK;
+
+static u32 palette_color(u8 color)
+{
+    static const u32 palette[16] = {
+        0x000000, 0x0000AA, 0x00AA00, 0x00AAAA,
+        0xAA0000, 0xAA00AA, 0xAA5500, 0xAAAAAA,
+        0x555555, 0x5555FF, 0x55FF55, 0x55FFFF,
+        0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF
+    };
+    return palette[color & 0x0F];
 }
 
-/* draw char */
-static void draw_char(int px, int py, char c, uint32_t fg, uint32_t bg)
+static void draw_framebuffer_cell(usize row, usize col, char character,
+                                  u8 fg, u8 bg)
 {
-    const uint8_t *g = font8x16[(uint8_t)c];
+    const u8 *glyph = font8x16[(u8)character];
+    u32 fg_color = palette_color(fg);
+    u32 bg_color = palette_color(bg);
 
-    for (int y = 0; y < FH; y++)
+    for (u32 y = 0; y < FONT_HEIGHT; y++)
     {
-        for (int x = 0; x < FW; x++)
+        for (u32 x = 0; x < FONT_WIDTH; x++)
         {
-            uint32_t col = (g[y] & (0x80 >> x)) ? fg : bg;
-            putpixel(px + x, py + y, col);
+            u32 color = (glyph[y] & (0x80 >> x)) ? fg_color : bg_color;
+            framebuffer_putpixel((int)(col * FONT_WIDTH + x),
+                                 (int)(row * FONT_HEIGHT + y), color);
         }
     }
 }
 
-/* direct draw */
-void console_putc_at(size_t row, size_t col, char c,
-                     uint32_t fgc, uint32_t bgc)
+static void render_cell(usize row, usize col, char character, u8 fg, u8 bg)
 {
-    draw_char(col * FW, row * FH, c, fgc, bgc);
+    if (backend == CONSOLE_FRAMEBUFFER)
+        draw_framebuffer_cell(row, col, character, fg, bg);
+    else
+        vga_text_put_cell(row, col, character, fg, bg);
 }
 
-/* clear */
+static void update_cursor(void)
+{
+    if (backend == CONSOLE_VGA)
+        vga_text_set_cursor(cursor_row, cursor_col);
+}
+
+void console_init_vga(void)
+{
+    backend = CONSOLE_VGA;
+    rows = VGA_HEIGHT;
+    cols = VGA_WIDTH;
+    cursor_row = 0;
+    cursor_col = 0;
+    foreground = VGA_LIGHT_GREY;
+    background = VGA_BLACK;
+    vga_text_init();
+}
+
+bool console_init_framebuffer(uptr address, u32 width, u32 height,
+                              u32 pitch, u32 bpp)
+{
+    usize new_cols, new_rows;
+
+    if (width < FONT_WIDTH || height < FONT_HEIGHT)
+        return false;
+    if (!framebuffer_init(address, width, height, pitch, bpp))
+        return false;
+
+    new_cols = width / FONT_WIDTH;
+    new_rows = height / FONT_HEIGHT;
+    if (!new_cols || !new_rows)
+        return false;
+
+    backend = CONSOLE_FRAMEBUFFER;
+    cols = new_cols;
+    rows = new_rows;
+    cursor_row = 0;
+    cursor_col = 0;
+    foreground = VGA_LIGHT_GREY;
+    background = VGA_BLACK;
+    framebuffer_fill(palette_color(background));
+    return true;
+}
+
+usize console_rows(void) { return rows; }
+usize console_cols(void) { return cols; }
+
+void console_set_color(u8 fg, u8 bg)
+{
+    foreground = fg & 0x0F;
+    background = bg & 0x0F;
+}
+
+void console_get_cursor(usize *row, usize *col)
+{
+    if (row)
+        *row = cursor_row;
+    if (col)
+        *col = cursor_col;
+}
+
+void console_set_cursor(usize row, usize col)
+{
+    cursor_row = row < rows ? row : rows - 1;
+    cursor_col = col < cols ? col : cols - 1;
+    update_cursor();
+}
+
+void console_putc_at(usize row, usize col, char character, u8 fg, u8 bg)
+{
+    if (row < rows && col < cols)
+        render_cell(row, col, character, fg, bg);
+}
+
 void console_clear(void)
 {
-    framebuffer_fill(bg);
-    cur_x = 0;
-    cur_y = 0;
+    cursor_row = 0;
+    cursor_col = 0;
+    if (backend == CONSOLE_FRAMEBUFFER)
+        framebuffer_fill(palette_color(background));
+    else
+        vga_text_clear(foreground, background);
+    update_cursor();
 }
 
-/* scroll */
+void console_clearline(usize row)
+{
+    if (row >= rows)
+        return;
+
+    for (usize col = 0; col < cols; col++)
+        render_cell(row, col, ' ', foreground, background);
+}
+
 void console_scroll(void)
 {
-    uint32_t row_bytes = framebuffer_pitch() * FH;
-    uint32_t size = framebuffer_pitch() * framebuffer_height();
+    if (backend == CONSOLE_FRAMEBUFFER)
+        framebuffer_scroll(FONT_HEIGHT, palette_color(background));
+    else
+        vga_text_scroll(foreground, background);
 
-    memmove((void *)framebuffer_address(), (void *)(framebuffer_address() + row_bytes), size - row_bytes);
-    memset((void *)(framebuffer_address() + size - row_bytes), 0, row_bytes);
-
+    if (cursor_row)
+        cursor_row--;
+    update_cursor();
 }
 
-/* init */
-void console_init(uint32_t addr, uint32_t w, uint32_t h,
-                  uint32_t pitch, uint32_t bpp)
+static void advance_line(void)
 {
-    framebuffer_init(addr, w, h, pitch, bpp);
-    console_clear();
-}
-
-/* put char */
-void console_putc(char c)
-{
-    if (c == '\n')
-    {
-        cur_x = 0;
-        cur_y++;
-        goto check_scroll;
-    }
-
-    if (c == '\r')
-    {
-        cur_x = 0;
-        return;
-    }
-
-    if ((unsigned char)c < 32)
-        return;
-
-    console_putc_at(cur_y, cur_x, c, fg, bg);
-
-    cur_x++;
-
-    if (cur_x >= console_cols())
-    {
-        cur_x = 0;
-        cur_y++;
-    }
-
-check_scroll:
-    if (cur_y >= console_rows())
+    cursor_col = 0;
+    cursor_row++;
+    if (cursor_row >= rows)
     {
         console_scroll();
-        cur_y = console_rows() - 1;
+        cursor_row = rows - 1;
     }
+    update_cursor();
 }
 
-/* string */
-void console_puts(const char *s)
+void console_backspace(void)
 {
-    if (!s) return;
-    while (*s) console_putc(*s++);
+    if (cursor_col)
+        cursor_col--;
+    else if (cursor_row)
+    {
+        cursor_row--;
+        cursor_col = cols - 1;
+    }
+    else
+        return;
+
+    render_cell(cursor_row, cursor_col, ' ', foreground, background);
+    update_cursor();
+}
+
+void console_putc(char character)
+{
+    if (character == '\n')
+    {
+        advance_line();
+        return;
+    }
+    if (character == '\r')
+    {
+        cursor_col = 0;
+        update_cursor();
+        return;
+    }
+    if (character == '\b')
+    {
+        console_backspace();
+        return;
+    }
+    if (character == '\t')
+    {
+        usize spaces = 4 - (cursor_col % 4);
+        while (spaces--)
+            console_putc(' ');
+        return;
+    }
+    if ((u8)character < 32)
+        return;
+
+    render_cell(cursor_row, cursor_col, character, foreground, background);
+    cursor_col++;
+    if (cursor_col >= cols)
+        advance_line();
+    else
+        update_cursor();
+}
+
+void console_puts(const char *text)
+{
+    if (!text)
+        return;
+    while (*text)
+        console_putc(*text++);
 }

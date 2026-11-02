@@ -192,6 +192,8 @@ strrchr:
 strcmp:
     push ebp
     mov  ebp, esp
+    push esi
+    push edi
 
     mov  esi, [ebp + 8]
     mov  edi, [ebp + 12]
@@ -211,11 +213,15 @@ strcmp:
     movzx eax, al
     movzx edx, dl
     sub   eax, edx
+    pop  edi
+    pop  esi
     leave
     ret
 
 .equal:
     xor  eax, eax
+    pop  edi
+    pop  esi
     leave
     ret
 

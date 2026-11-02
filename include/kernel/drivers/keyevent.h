@@ -1,7 +1,7 @@
 #ifndef KEYEVENT_H
 #define KEYEVENT_H
 
-#include <stdint.h>
+#include "libc/types.h"
 #include "keycodes.h"
 
 typedef enum {
@@ -12,7 +12,7 @@ typedef enum {
 typedef struct {
     key_event_type_t type;
     keycode_t        keycode;
-    uint8_t          ascii;     // 0 if non-printable
+    u8                ascii;
 } key_event_t;
 
 #endif

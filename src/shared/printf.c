@@ -146,7 +146,6 @@ void printf(const char *fmt, ...)
     va_start(ap, fmt);
     vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
-    serial_write(buf);
     TTY_puts(buf);
 }
 
@@ -157,7 +156,6 @@ void panic(const char *fmt, ...)
     va_start(ap, fmt);
     vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
-    serial_write(buf);
     TTY_puts(buf);
 }
 

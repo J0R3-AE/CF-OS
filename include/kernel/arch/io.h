@@ -40,9 +40,6 @@ u16 mmin16(void *p);
 // Read a 32‑bit value from a memory‑mapped I/O address.
 u32 mmin32(void *p);
 
-// Read a 64-bit value from a memory‑mapped I/O address.
-u64 mmin64(void *p);
-
 // Write an 8‑bit value to a memory‑mapped I/O address.
 void mmout8(void *p, u8 data);
 
@@ -51,9 +48,6 @@ void mmout16(void *p, u16 data);
 
 // Write a 32‑bit value to a memory‑mapped I/O address.
 void mmout32(void *p, u32 data);
-
-// Write a 64‑bit value to a memory‑mapped I/O address.
-void mmout64(void *p, u64 data);
 
 // CPU Interrupt Control & Halt
 // Enable CPU interrupts (set IF flag).
@@ -66,10 +60,149 @@ void cli(void);
 void halt(void);
 
 // Standard I/O wait helper (alias for iowait).
-void wait(void);
+/* -------------------------------------------------------------------------- */
+/* Port‑Mapped I/O (PIO)                                                       */
+/* -------------------------------------------------------------------------- */
 
+/**
+ * @brief Read an 8‑bit value from an I/O port.
+ *
+ * @param port I/O port number.
+ * @return 8‑bit value read.
+ */
+u8 in8(u16 port);
 
-// Serial Port Output (COM1)
+/**
+ * @brief Read a 16‑bit value from an I/O port.
+ */
+u16 in16(u16 port);
+
+/**
+ * @brief Read a 32‑bit value from an I/O port.
+ */
+u32 in32(u16 port);
+
+/**
+ * @brief Write an 8‑bit value to an I/O port.
+ */
+void out8(u16 port, u8 data);
+
+/**
+ * @brief Write a 16‑bit value to an I/O port.
+ */
+void out16(u16 port, u16 data);
+
+/**
+ * @brief Write a 32‑bit value to an I/O port.
+ */
+void out32(u16 port, u32 data);
+
+/* -------------------------------------------------------------------------- */
+/* Memory‑Mapped I/O (MMIO)                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * @brief Read an 8‑bit value from a memory‑mapped I/O address.
+ */
+u8 mmin8(void *p);
+
+/**
+ * @brief Read a 16‑bit value from a memory‑mapped I/O address.
+ */
+u16 mmin16(void *p);
+
+/**
+ * @brief Read a 32‑bit value from a memory‑mapped I/O address.
+ */
+u32 mmin32(void *p);
+
+/**
+ * @brief Write an 8‑bit value to a memory‑mapped I/O address.
+ */
+void mmout8(void *p, u8 data);
+
+/**
+ * @brief Write a 16‑bit value to a memory‑mapped I/O address.
+ */
+void mmout16(void *p, u16 data);
+
+/**
+ * @brief Write a 32‑bit value to a memory‑mapped I/O address.
+ */
+void mmout32(void *p, u32 data);
+
+/* -------------------------------------------------------------------------- */
+/* CPU Interrupt Control & Halt                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * @brief Enable CPU interrupts (set IF flag).
+ */
+void io_enableinterrupts(void);
+
+/**
+ * @brief Disable CPU interrupts (clear IF flag).
+ */
+void io_disableinterrupts(void);
+
+/**
+ * @brief Halt the CPU until the next external interrupt.
+ */
+void io_halt(void);
+
+/**
+ * @brief Enable CPU interrupts (assembly version).
+ */
+void i386io_enableinterrupts(void);
+
+/**
+ * @brief Disable CPU interrupts (assembly version).
+ */
+void i386io_disableinterrupts(void);
+
+/**
+ * @brief Halt the CPU until the next interrupt (assembly version).
+ */
+void i386io_hlt(void);
+
+/**
+ * @brief Delay briefly to allow slow I/O devices to settle.
+ *
+ * Typically implemented as an outb to port 0x80.
+ */
+void i386io_iowait(void);
+
+void enableinterrupts(void);
+void disableinterrupts(void);
+void halt(void);
+
+/**
+ * @brief Print a panic message and halt the system.
+ *
+ * @param msg Null‑terminated panic message.
+ */
+void i386io_panic(const char *msg);
+
+/**
+ * @brief Standard I/O wait helper (alias for iowait).
+ */
+void iowait(void);
+
+void io_enableinterrupts(void);
+void io_disableinterrupts(void);
+void io_halt(void);
+void i386io_enableinterrupts(void);
+void i386io_disableinterrupts(void);
+void i386io_hlt(void);
+void i386io_iowait(void);
+void enableinterrupts(void);
+void disableinterrupts(void);
+void i386io_panic(const char *msg);
+
+/* -------------------------------------------------------------------------- */
+/* Serial Port Output (COM1)                                                   */
+/* -------------------------------------------------------------------------- */
+
 /**
  * @brief Initialize the serial port for debugging output.
  */

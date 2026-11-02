@@ -6,8 +6,8 @@
  * ramfs is a simple, non‑persistent filesystem stored entirely in memory.
  * It supports:
  * - hierarchical directories
- * - file creation, deletion, read/write
- * - dynamic resizing of file data
+ * - file creation, deletion, read/write, and truncate
+ * - dynamic resizing and zero-filled growth of file data
  * - optional device hooks for vnode-backed devices
  *
  * This filesystem is ideal for early boot, temporary storage, and testing.
@@ -64,7 +64,6 @@ struct ramfs_node
 struct ramfs_mount
 {
     struct ramfs_node *root; /**< Root directory node. */
-    struct vnode *root_vnode_cache; /**< Cached root vnode for this mount. */
 };
 
 /* -------------------------------------------------------------------------- */
@@ -96,23 +95,5 @@ void ramfs_set_dev_hooks(struct vnode *vn, int (*dev_read)(void *buf, usize len)
  * The tarball should be a contiguous memory blob (start,size).
  */
 void tar_extract(struct vnode *root, void *start, u32 size);
-
-/* -------------------------------------------------------------------------- */
-/*  Internal FS Operations (static, not exported)                             */
-/* -------------------------------------------------------------------------- */
-/* These remain static in the .c file and intentionally undocumented here.    */
-
-static int ramfs_mount_fn(struct mount *mp, const char *opts);
-static int ramfs_unmount_fn(struct mount *mp);
-static int ramfs_sync_fn(struct mount *mp);
-static int ramfs_root_vnode(struct mount *mp, struct vnode **out_root);
-static int ramfs_lookup_vn(struct vnode *dir, const char *name, struct vnode **out);
-static int ramfs_create_vn(struct vnode *dir, const char *name, vnode_type_t type, struct vnode **out);
-static int ramfs_unlink_vn(struct vnode *dir, const char *name);
-static int ramfs_read_vn(struct vnode *vn, void *buf, usize off, usize len, usize *out);
-static int ramfs_write_vn(struct vnode *vn, const void *buf, usize off, usize len, usize *out);
-static int ramfs_readdir_vn(struct vnode *vn, usize index, const char **name_out, vnode_type_t *type_out);
-static int ramfs_truncate_vn(struct vnode *vn, usize new_size);
-static int ramfs_getattr_vn(struct vnode *vn, void *stat_buf);
 
 /* RAMFS_H */

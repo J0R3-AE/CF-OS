@@ -125,6 +125,4 @@ void pit_reset_ticks(void);
  *
  * @param hz Desired frequency.
  */
-static void pit_program(u32 hz);
-
 /* __PIT_H_ */

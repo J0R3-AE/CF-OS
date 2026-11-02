@@ -203,16 +203,14 @@ void isr_handler(registers_t *regs){
  */
 void irq_handler(registers_t *regs)
 {
-    // Send EOI to PIC
-    if (regs->int_no >= 40){
-        out8(PIC_SLAVE_CMD, PIC_CMD_EOI);
-    }
-    out8(PIC_MASTER_CMD, PIC_CMD_EOI);
-
-    if (regs->int_no < 256 && interrupt_handlers[regs->int_no]){
+    if (regs->int_no < 256 && interrupt_handlers[regs->int_no]) {
         interrupt_handlers[regs->int_no](regs);
-    }
-    else{
+    } else {
         KLOG_WARN("Unhandled IRQ %u", regs->int_no);
     }
+
+    if (regs->int_no >= 40)
+        out8(PIC_SLAVE_CMD, PIC_CMD_EOI);
+    if (regs->int_no >= 32)
+        out8(PIC_MASTER_CMD, PIC_CMD_EOI);
 }

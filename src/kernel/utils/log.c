@@ -63,10 +63,6 @@ void log_vwrite_ex(log_level_t lvl, const char *file, int line, const char *fmt,
     else
         snprintf(final, sizeof(final), "[%s] %s", level_tag(lvl), msg);
 
-    serial_write(final);
-    serial_write("\n");
-
-    u8 fg, bg;
     TTY_puts(final);
     TTY_putc('\n');
 

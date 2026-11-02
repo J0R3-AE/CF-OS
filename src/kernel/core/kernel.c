@@ -1,5 +1,7 @@
 #include "libc/string.h"
 #include "libc/mem.h"
+#include "libc/log.h"
+#include "libc/printf.h"
 #include "libc/types.h"
 
 #include "kernel/arch/multiboot.h"
@@ -19,13 +21,13 @@
 #include "kernel/net/net.h"
 #include "kernel/net/loopback.h"
 
+#include "kernel/drivers/console.h"
 #include "kernel/drivers/tty.h"
 #include "kernel/drivers/ata.h"
 #include "kernel/drivers/framebuffer.h"
-//#include "kernel/drivers/wm.h"
 #include "kernel/drivers/serial.h"
+#include "kernel/drivers/input.h"
 #include "kernel/drivers/ps2/ps2.h"
-#include "kernel/drivers/keyboard.h"
 
 #include "kernel/fs/vfs.h"
 #include "kernel/fs/ramfs.h"
@@ -34,125 +36,238 @@
 #include "kernel/fs/ext2.h"
 #include "kernel/fs/install.h"
 
-#include "kernel/sched/scheduler.h"
-#include "kernel/proc/process.h"
-
-#define STACK_SIZE       4096
-#define FB_VIRT          0xE0000000
-
-#define HEAP_START       0x00800000
-#define HEAP_MAX         0x02000000
-
-#define TOTAL_RAM        (128 * 1024 * 1024)
-#define KERNEL_END       0x00200000
-#define KERNEL_STACK_TOP 0xC03FF000
-
-static uint8_t kernel_stack[STACK_SIZE];
-
-extern Link g_fs_types;
+#include "kernel/sched/sched.h"
+#include "kernel/proc/proc.h"
 
 extern void kernel_init(void);
+
+#define FB_VIRT 0xE0000000
+#define FB_VIRT_LIMIT 0xE1000000
+#define MULTIBOOT_INFO_VBE 0x00000800
+
+#define HEAP_START 0x00800000 // 8MB
+#define HEAP_MAX 0x02000000   // 32MB
+
+#define TOTAL_RAM (128 * 1024 * 1024) // QEMU default
+#define KERNEL_END 0x00200000         // ~2MB
+static uint8_t kernel_stack[4096];
+
+extern Link g_fs_types; /* intrusive FS registry list head */
 extern void shell_run(void);
-extern void arch_detect(uint32_t *arch, uint32_t *isa);
 
 multiboot_info_t *g_mbi = NULL;
 
-// Kernel entry
+typedef struct
+{
+    u32 physical;
+    u32 width;
+    u32 height;
+    u32 pitch;
+    u32 bpp;
+    bool valid;
+} boot_framebuffer_t;
+
+static boot_framebuffer_t read_boot_framebuffer(multiboot_info_t *mbi)
+{
+    boot_framebuffer_t framebuffer = {0};
+    vbe_mode_info_t *mode;
+
+    if (!mbi || !(mbi->flags & MULTIBOOT_INFO_VBE) || !mbi->vbe_mode_info)
+        return framebuffer;
+
+    mode = (vbe_mode_info_t *)(uptr)mbi->vbe_mode_info;
+    if ((mode->attributes & 0x91) != 0x91 ||
+        mode->planes != 1 || mode->memory_model != 6 || !mode->physbase ||
+        !mode->Xres || !mode->Yres || !mode->pitch ||
+        (mode->bpp != 16 && mode->bpp != 24 && mode->bpp != 32))
+        return framebuffer;
+    if ((mode->bpp == 16 &&
+         (mode->red_mask != 5 || mode->red_position != 11 ||
+          mode->green_mask != 6 || mode->green_position != 5 ||
+          mode->blue_mask != 5 || mode->blue_position != 0)) ||
+        (mode->bpp != 16 &&
+         (mode->red_mask != 8 || mode->red_position != 16 ||
+          mode->green_mask != 8 || mode->green_position != 8 ||
+          mode->blue_mask != 8 || mode->blue_position != 0)))
+        return framebuffer;
+
+    framebuffer.physical = mode->physbase;
+    framebuffer.width = mode->Xres;
+    framebuffer.height = mode->Yres;
+    framebuffer.pitch = mode->pitch;
+    framebuffer.bpp = mode->bpp;
+    framebuffer.valid = true;
+    return framebuffer;
+}
+
+static bool map_boot_framebuffer(const boot_framebuffer_t *framebuffer)
+{
+    u64 page_start;
+    u64 byte_count;
+    u64 map_size;
+    u64 page_count;
+
+    if (!framebuffer || !framebuffer->valid)
+        return false;
+
+    byte_count = (u64)framebuffer->pitch * framebuffer->height;
+    page_start = framebuffer->physical & ~(u64)(PAGE_SIZE - 1);
+    map_size = byte_count + (framebuffer->physical - page_start);
+    if (!byte_count || map_size > (FB_VIRT_LIMIT - FB_VIRT) ||
+        (u64)framebuffer->physical + byte_count > 0x100000000ULL)
+        return false;
+
+    page_count = (map_size + PAGE_SIZE - 1) / PAGE_SIZE;
+    for (u64 page = 0; page < page_count; page++)
+    {
+        u32 virtual_address = FB_VIRT + (u32)(page * PAGE_SIZE);
+        u32 physical_address = (u32)(page_start + page * PAGE_SIZE);
+        u32 directory_entry = kernel_pd->entries[virtual_address >> 22];
+        u32 *page_table;
+        u32 table_entry;
+
+        if (directory_entry & PAGE_PRESENT)
+        {
+            page_table = (u32 *)(directory_entry & ~0xFFFu);
+            table_entry = page_table[(virtual_address >> 12) & 0x3FF];
+            if (!(table_entry & PAGE_PRESENT))
+                paging_map_page(kernel_pd, virtual_address, physical_address,
+                                PAGE_PRESENT | PAGE_RW);
+        }
+        else
+            paging_map_page(kernel_pd, virtual_address, physical_address,
+                            PAGE_PRESENT | PAGE_RW);
+
+        directory_entry = kernel_pd->entries[virtual_address >> 22];
+        if (!(directory_entry & PAGE_PRESENT))
+            return false;
+        page_table = (u32 *)(directory_entry & ~0xFFFu);
+        table_entry = page_table[(virtual_address >> 12) & 0x3FF];
+        if (!(table_entry & PAGE_PRESENT) ||
+            (table_entry & ~0xFFFu) != physical_address)
+            return false;
+    }
+
+    if (!console_init_framebuffer(
+            FB_VIRT + (framebuffer->physical - (u32)page_start),
+            framebuffer->width, framebuffer->height,
+            framebuffer->pitch, framebuffer->bpp))
+        return false;
+
+    TTY_set_fb_backend(1);
+    TTY_init();
+    return true;
+}
+
 void kmain(u32 magic, multiboot_info_t *mbi)
 {
     (void)magic;
 
-    uint32_t arch = 0;
-    uint32_t isa = 0;
-
     g_mbi = mbi;
+    boot_framebuffer_t boot_framebuffer = read_boot_framebuffer(mbi);
+    (void)serial_init(COM1);
 
-    /* Architecture detection */
-    arch_detect(&arch, &isa);
-
-    /* Framebuffer initialization */
-    vbe_mode_info_t *vbe =
-        (vbe_mode_info_t *)(uintptr_t)mbi->vbe_mode_info;
-
-    uint32_t fb_addr   = vbe->physbase;
-    uint32_t fb_width  = vbe->Xres;
-    uint32_t fb_height = vbe->Yres;
-    uint32_t fb_pitch  = vbe->pitch;
-    uint32_t fb_bpp    = vbe->bpp;
-
-    framebuffer_init(
-        fb_addr,
-        fb_width,
-        fb_height,
-        fb_pitch,
-        fb_bpp
-    );
-
-    /* Terminal and window manager */
-    TTY_set_fb_backend(1);
+    console_init_vga();
     TTY_init();
-    //wm_init();
+    printf("Kernel starting...\n");
+    printf("Welcome to AescOS!\n");
 
-    /* Disable interrupts during early initialization */
-    cli();
+    log_set_hide_info(0);
+    log_set_hide_all(1);
 
-    /* CPU and interrupt setup */
+    disableinterrupts();
+    KLOG_LOG("Kernel initializing...");
+
     gdt_init();
+    KLOG_LOG("GDT initialized");
 
-    tss_init(
-        (uint32_t)(kernel_stack + sizeof(kernel_stack))
-    );
+    tss_init((uint32_t)(kernel_stack + sizeof(kernel_stack)));
+    KLOG_LOG("TSS initialized");
 
     pic_init();
+    KLOG_LOG("PIC initialized");
+
     idt_init();
-
+    KLOG_LOG("IDT initialized");
     register_interrupt_handler(32, pit_handler);
-    register_interrupt_handler(33, ps2_irq_keyboard);
+    KLOG_LOG("PIT handler registered");
 
-    /* Input and timer setup */
-    keyboard_init();
-    pit_init(1);
+    register_interrupt_handler(33, ps2_irq_handler);
+    if (input_init() == 0)
+    {
+        pic_unmask_irq(1);
+        KLOG_LOG("PS/2 keyboard initialized");
+    }
+    else
+    {
+        KLOG_WARN("PS/2 keyboard initialization failed");
+    }
 
-    /* Memory management */
+    pit_init(100);
+    KLOG_LOG("PIT initialized");
+
     pmm_init(TOTAL_RAM, KERNEL_END);
+    KLOG_LOG("PMM initialized with %u bytes total RAM", TOTAL_RAM);
+
     heap_init(HEAP_START, HEAP_MAX, NULL);
-    paging_init();
+    KLOG_LOG("Heap initialized from 0x%x to 0x%x", HEAP_START, HEAP_MAX);
 
-    /* Inter-process communication and networking */
     ipc_init();
+    KLOG_LOG("IPC initialized");
+
     net_init();
+    KLOG_LOG("Network stack initialized");
+
     net_loopback_init();
+    KLOG_LOG("Loopback network interface initialized");
 
-    /* Serial interface */
-    serial_init(COM1);
+    paging_init();
+    KLOG_LOG("Paging initialized");
 
-    /* Enable interrupts */
-    sti();
+    if (map_boot_framebuffer(&boot_framebuffer))
+    {
+        KLOG_LOG("Boot framebuffer console enabled");
+    }
+    else
+    {
+        KLOG_INFO("Using VGA text console");
+    }
 
-    /* Storage devices */
+    enableinterrupts();
+    KLOG_LOG("Interrupts enabled");
+
     ata_identify();
+    KLOG_LOG("ATA devices identified");
 
-    /* Filesystem initialization */
     ListInit(&g_fs_types);
+    KLOG_INFO("Filesystem registry initialized");
 
     ramfs_init();
+    KLOG_LOG("RAMFS initialized");
+
     mount_init();
+    KLOG_LOG("Mount subsystem initialized");
+
     fat_init();
+    KLOG_LOG("FAT filesystem support initialized");
+
     ext2_init();
+    KLOG_LOG("EXT2 filesystem support initialized");
 
-    /* Process and scheduler initialization */
     proc_init();
+    KLOG_LOG("Process subsystem initialized");
+
     sched_init();
+    KLOG_LOG("Scheduler initialized");
 
-    /* Start with a clean terminal */
-    TTY_clear();
-
-    /* Continue kernel initialization */
     kernel_init();
 
-    /* Halt if kernel_init returns */
+    printf("kmain: returned from kernel_init, going into backup shell");
+    shell_run();
+
     for (;;)
     {
+        printf("kmain: reached idle loop, halting");
         __asm__ volatile("hlt");
     }
 }

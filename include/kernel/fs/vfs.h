@@ -74,7 +74,8 @@ int vfs_unmount(const char *target);
 
 
 /**
- * Open file by path.
+ * Open a file by path. Relative paths are resolved from the current VFS root.
+ * The returned file carries one reference that the caller must release.
  */
 int vfs_open(const char *path,
              u32 flags,
@@ -88,7 +89,7 @@ struct file *vfs_open_vnode(struct vnode *vn);
 
 
 /**
- * Close file.
+ * Release one reference to an open file.
  */
 int vfs_close(struct file *f);
 
@@ -150,7 +151,7 @@ int vfs_unlink(const char *path);
 
 
 /**
- * Resolve path to vnode.
+ * Resolve path to a borrowed vnode. The caller must not unref the result.
  */
 int vfs_lookup(const char *path,
                struct vnode **out);
@@ -167,7 +168,8 @@ struct vnode *vfs_resolve(const char *path);
 /**
  * Resolve parent directory and final component.
  *
- * Used by create/unlink/mkdir.
+ * Used by create/unlink/mkdir. The returned leaf name is heap-allocated and
+ * must be freed by the caller; the parent vnode is borrowed.
  */
 struct vnode *vfs_resolve_path(
         const char *path,

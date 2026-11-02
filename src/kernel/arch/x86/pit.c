@@ -72,7 +72,6 @@ void pit_init(u32 hz)
 
     /* Make sure timer IRQ is enabled */
     pic_unmask_irq(0);
-    pic_unmask_irq(1);
 }
 
 void pit_log(void)

@@ -1,46 +1,96 @@
-#include <stdint.h>
 #include "kernel/drivers/ps2/i8042.h"
-#include "kernel/arch/io.h"   // your in8/out8
+#include "kernel/arch/io.h"
+#include "libc/errno.h"
 
-#define I8042_DATA_PORT   0x60
+#define I8042_DATA_PORT 0x60
 #define I8042_STATUS_PORT 0x64
-#define I8042_CMD_PORT    0x64
+#define I8042_COMMAND_PORT 0x64
+#define I8042_OUTPUT_FULL 0x01
+#define I8042_INPUT_FULL 0x02
+#define I8042_POLL_LIMIT 100000
 
-#define I8042_STATUS_OBF  0x01
-#define I8042_STATUS_IBF  0x02
-
-static void i8042_wait_input_empty(void)
+u8 i8042_read_status(void)
 {
-    while (in8(I8042_STATUS_PORT) & I8042_STATUS_IBF)
-        ;
+    return in8(I8042_STATUS_PORT);
 }
 
-static void i8042_wait_output_full(void)
+bool i8042_try_read_data(u8 *data)
 {
-    while (!(in8(I8042_STATUS_PORT) & I8042_STATUS_OBF))
-        ;
+    if (!data || !(i8042_read_status() & I8042_OUTPUT_FULL))
+        return false;
+    *data = in8(I8042_DATA_PORT);
+    return true;
 }
 
-void i8042_write_command(uint8_t cmd)
+int i8042_write_command(u8 command)
 {
-    i8042_wait_input_empty();
-    out8(I8042_CMD_PORT, cmd);
+    for (u32 i = 0; i < I8042_POLL_LIMIT; i++)
+    {
+        if (!(i8042_read_status() & I8042_INPUT_FULL))
+        {
+            out8(I8042_COMMAND_PORT, command);
+            return 0;
+        }
+    }
+    return ERR_TIMED_OUT;
 }
 
-void i8042_write_data(uint8_t data)
+int i8042_write_data(u8 data)
 {
-    i8042_wait_input_empty();
-    out8(I8042_DATA_PORT, data);
+    for (u32 i = 0; i < I8042_POLL_LIMIT; i++)
+    {
+        if (!(i8042_read_status() & I8042_INPUT_FULL))
+        {
+            out8(I8042_DATA_PORT, data);
+            return 0;
+        }
+    }
+    return ERR_TIMED_OUT;
 }
 
-uint8_t i8042_read_data(void)
+int i8042_read_data(u8 *data)
 {
-    i8042_wait_output_full();
-    return in8(I8042_DATA_PORT);
+    if (!data)
+        return ERR_INVALID_ARGUMENT;
+
+    for (u32 i = 0; i < I8042_POLL_LIMIT; i++)
+    {
+        if (i8042_try_read_data(data))
+            return 0;
+    }
+    return ERR_TIMED_OUT;
 }
 
-void i8042_init(void)
+int i8042_init(void)
 {
-    // Basic reset/disable could go here if you want
-    // For now, minimal stub.
+    u8 config;
+
+    if (i8042_write_command(0xAD) < 0 ||
+        i8042_write_command(0xA7) < 0)
+        return ERR_TIMED_OUT;
+
+    u32 poll;
+    for (poll = 0; poll < I8042_POLL_LIMIT; poll++)
+    {
+        if (!(i8042_read_status() & I8042_OUTPUT_FULL))
+            break;
+        (void)in8(I8042_DATA_PORT);
+    }
+    if (poll == I8042_POLL_LIMIT)
+        return ERR_TIMED_OUT;
+
+    if (i8042_write_command(0x20) < 0 ||
+        i8042_read_data(&config) < 0)
+        return ERR_TIMED_OUT;
+
+    config &= (u8)~0x03;
+    config |= 0x60;
+    config &= (u8)~0x10;
+    config |= 0x20;
+
+    if (i8042_write_command(0x60) < 0 ||
+        i8042_write_data(config) < 0)
+        return ERR_TIMED_OUT;
+
+    return 0;
 }
