@@ -3,7 +3,7 @@
 #include "kernel/mm/heap.h"
 #include "libc/string.h"
 #include "libc/mem.h"
-#include "libc/log.h"
+#include "kernel/log.h"
 
 static Link g_net_devices;
 static int g_net_ready = 0;

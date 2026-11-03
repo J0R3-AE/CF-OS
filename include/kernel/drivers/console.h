@@ -15,6 +15,7 @@ void console_scroll(void);
 void console_putc_at(usize row, usize col, char c, u8 foreground,
                      u8 background);
 void console_set_color(u8 foreground, u8 background);
+void console_get_color(u8 *foreground, u8 *background);
 void console_get_cursor(usize *row, usize *col);
 void console_set_cursor(usize row, usize col);
 usize console_rows(void);

@@ -1,6 +1,6 @@
 #pragma once
 #include "vnode.h"
-#include "libc/link.h"
+#include "kernel/list.h"
 
 struct mount;
 struct fs_type;

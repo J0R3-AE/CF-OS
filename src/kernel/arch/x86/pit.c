@@ -4,7 +4,7 @@
 
 #include "kernel/arch/io.h"
 #include "kernel/arch/pic.h"
-#include "libc/printf.h"
+#include "kernel/printf.h"
 #include "libc/types.h"
 
 volatile u32 g_pit_ticks = 0;

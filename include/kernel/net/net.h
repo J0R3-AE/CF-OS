@@ -1,7 +1,7 @@
 #pragma once
 
 #include "libc/types.h"
-#include "libc/link.h"
+#include "kernel/list.h"
 
 #define NET_NAME_MAX 32
 #define NET_MAC_LEN 6

@@ -3,7 +3,7 @@
 #include "libc/types.h"
 #include "libc/string.h"
 #include "libc/mem.h"
-#include "libc/log.h"
+#include "kernel/log.h"
 
 #include "kernel/mm/heap.h"
 

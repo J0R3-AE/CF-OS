@@ -36,6 +36,7 @@ struct blockdev
     const struct blockdev_ops *ops;
 
     u32 sector_size;
+    u32 sector_count;
 
     void *private_data;
 

@@ -70,6 +70,7 @@ extern uint8_t TTY_bg;
 /* -------------------------------------------------------------------------- */
 
 void TTY_init(void);
+<<<<<<< HEAD
 
 void TTY_set_TTY_base(
     volatile uint16_t *addr);
@@ -113,6 +114,13 @@ void TTY_getcolor(
     uint8_t *fg,
     uint8_t *bg);
 
+=======
+void TTY_getpos(usize *row, usize *col);
+void TTY_setpos(usize row, usize col);
+void TTY_getsize(usize *rows, usize *cols);
+void TTY_setcolor(u8 foreground, u8 background);
+void TTY_getcolor(u8 *foreground, u8 *background);
+>>>>>>> 0314c3a (	modified:   Makefile)
 void TTY_resetcolor(void);
 
 

@@ -1,8 +1,12 @@
 #include "kernel/net/net.h"
 #include "kernel/mm/heap.h"
 #include "libc/string.h"
+<<<<<<< HEAD
 #include "libc/mem.h"
 #include "libc/log.h"
+=======
+#include "kernel/log.h"
+>>>>>>> 0314c3a (	modified:   Makefile)
 
 static void net_copy_name(char *dst, const char *src)
 {

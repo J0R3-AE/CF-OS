@@ -1,6 +1,12 @@
+<<<<<<< HEAD:src/kernel/arch/x86/tss.c
 #include "kernel/arch/tss.h"
 #include "kernel/arch/gdt.h"
 #include "libc/log.h"
+=======
+#include "Kernel/arch/tss.h"
+#include "Kernel/arch/gdt.h"
+#include "kernel/log.h"
+>>>>>>> 0314c3a (	modified:   Makefile):src/kernel/arch/i386-x86/tss.c
 #include "libc/mem.h"
 
 extern void i386GDT_flush(u32);
@@ -33,4 +39,9 @@ void tss_init(uint32_t kernel_stack_top)
 
     i386GDT_flush((u32)&gdt_ptr);
     tss_flush(0x28); // selector = 5 << 3
+}
+
+void tss_set_kernel_stack(uint32_t kernel_stack_top)
+{
+    tss.esp0 = kernel_stack_top;
 }

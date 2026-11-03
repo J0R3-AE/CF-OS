@@ -1,6 +1,6 @@
 #include "kernel/net/net.h"
 #include "kernel/mm/heap.h"
-#include "libc/log.h"
+#include "kernel/log.h"
 #include "libc/mem.h"
 
 static Link g_net_sockets;

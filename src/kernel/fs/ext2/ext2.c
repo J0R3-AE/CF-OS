@@ -2,8 +2,8 @@
 #include "libc/string.h"
 #include "libc/mem.h"
 #include "libc/math.h"
-#include "libc/printf.h"
-#include "libc/log.h"
+#include "kernel/printf.h"
+#include "kernel/log.h"
 
 #include "kernel/mm/heap.h"
 

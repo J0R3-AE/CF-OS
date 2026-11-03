@@ -6,7 +6,7 @@
 #include "libc/string.h"
 #include "libc/mem.h"
 #include "libc/math.h"
-#include "libc/log.h"
+#include "kernel/log.h"
 
 /*
  * ELF32 loader for MiniOS
@@ -147,7 +147,11 @@ static int load_segment(struct page_directory *pd,
         else
             flags |= PAGE_RW; /* keep writable for now; tighten later if desired */
 
-        paging_map_page(pd, addr, phys, flags);
+        if (paging_map_page(pd, addr, phys, flags) != 0)
+        {
+            free(pages);
+            return -1;
+        }
 
         pages[i].vaddr = addr;
         pages[i].phys = phys;
@@ -342,7 +346,11 @@ static int load_segment_from_memory(struct page_directory *pd,
         else
             flags |= PAGE_RW;
 
-        paging_map_page(pd, addr, phys, flags);
+        if (paging_map_page(pd, addr, phys, flags) != 0)
+        {
+            free(pages);
+            return -1;
+        }
 
         pages[i].vaddr = addr;
         pages[i].phys = phys;

@@ -1,5 +1,5 @@
 #include "kernel/net/net.h"
-#include "libc/log.h"
+#include "kernel/log.h"
 #include "libc/string.h"
 
 int net_ethernet_is_broadcast(const u8 mac[NET_MAC_LEN])

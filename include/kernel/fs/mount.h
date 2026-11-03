@@ -16,7 +16,7 @@
 
 #include "fs_types.h"
 #include "vfs.h"
-#include "libc/link.h"
+#include "kernel/list.h"
 
 /* -------------------------------------------------------------------------- */
 /*  Mount Structure                                                            */

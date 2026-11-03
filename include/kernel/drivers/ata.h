@@ -40,6 +40,9 @@
 /* -------------------------------------------------------------------------- */
 
 #define ATA_CMD_IDENTIFY  0xEC  /**< IDENTIFY DEVICE command. */
+#define ATA_CMD_READ28    0x20  /**< Read sectors using LBA28. */
+#define ATA_CMD_WRITE28   0x30  /**< Write sectors using LBA28. */
+#define ATA_CMD_FLUSH     0xE7  /**< Flush the device write cache. */
 
 /* -------------------------------------------------------------------------- */
 /* ATA Status Register Flags                                                   */
@@ -63,6 +66,16 @@
  * @return 0 on success, negative error code on failure.
  */
 int ata_identify(void);
+
+/**
+ * @brief Detect and register the primary master as block device "hd0".
+ *
+ * @return 0 on success, negative error code on failure.
+ */
+int ata_init(void);
+
+/** Return the detected drive capacity in 512-byte sectors. */
+u32 ata_sector_count(void);
 
 /**
  * @brief Read sectors using 28‑bit LBA addressing.
@@ -89,3 +102,7 @@ int ata_read28(u32 lba, void *buf, u32 count);
  */
 int ata_write28(u32 lba, const void *buf, u32 count);
 
+#ifdef ATA_PIO_SELFTEST
+/** Test one-sector read/write and restore sector zero after completion. */
+int ata_selftest(void);
+#endif

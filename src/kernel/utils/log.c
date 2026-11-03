@@ -1,8 +1,12 @@
-#include "libc/log.h"
+#include "kernel/log.h"
 #include "kernel/arch/io.h"
 #include "kernel/drivers/tty.h"
+<<<<<<< HEAD
 #include "kernel/drivers/serial.h"
 #include "libc/printf.h"
+=======
+#include "kernel/printf.h"
+>>>>>>> 0314c3a (	modified:   Makefile)
 
 #include <stdarg.h>
 #include <stddef.h>

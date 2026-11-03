@@ -8,9 +8,7 @@
  * - FAT variant operations (FAT12/16/32 differences)
  * - FAT vnode metadata
  *
- * FAT is a simple, widely‑supported filesystem used for boot partitions,
- * removable media, and compatibility layers. This implementation supports
- * read‑only or read/write depending on backend block device support.
+ * The driver supports FAT12/16/32 reads and limited 8.3-name writes.
  */
 
 #include "fs_types.h"
@@ -52,8 +50,8 @@ typedef enum
  */
 typedef struct fat_variant_ops
 {
-    u32 (*get_fat_entry)(struct fat_super *sb, u32 index);
-    void (*set_fat_entry)(struct fat_super *sb, u32 index, u32 value);
+    int (*get_fat_entry)(struct fat_super *sb, u32 index, u32 *value);
+    int (*set_fat_entry)(struct fat_super *sb, u32 index, u32 value);
     u32 (*root_dir_first_cluster)(struct fat_super *sb);
     int (*is_eoc)(struct fat_super *sb, u32 value);
 } fat_variant_ops_t;
@@ -95,6 +93,10 @@ typedef struct fat_super
     u32 root_dir_start; /**< First root directory sector (FAT12/16). */
     u32 data_start;     /**< First data sector. */
     u32 root_cluster;   /**< FAT32 root directory cluster. */
+    u32 volume_sectors;
+    u32 fat_sectors;
+    u32 root_dir_sectors;
+    u32 cluster_count;
 } fat_super_t;
 
 /* -------------------------------------------------------------------------- */
@@ -116,6 +118,9 @@ typedef struct fat_node
     u32 first_cluster;
     u32 size;
     u8 attr;
+    u32 dir_sector;
+    u16 dir_offset;
+    u8 has_dirent;
 } fat_node_t;
 
 /* -------------------------------------------------------------------------- */

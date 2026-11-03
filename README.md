@@ -59,6 +59,9 @@ Clearfall is an experimental system under active development. Kernel subsystems 
 - File descriptor table per process
 - `open`, `close`, `read`, `write`, `readdir`
 - RAMFS path lookup, directories, file I/O, truncation, and unlink
+- User shell file commands: `cat`, `cp`, `touch`, `mkdir`, `rm`, and `rmdir`
+- Filesystem syscalls for creating/removing files and directories, seeking,
+  truncating, and querying metadata
 
 Clearfall includes a basic Virtual Filesystem (VFS) abstraction intended to provide a common interface for filesystems and user programs.
 
@@ -70,7 +73,15 @@ Available or partially implemented operations include:
 - `write`
 - `readdir`
 
+<<<<<<< HEAD
 RAMFS, FAT, and EXT2 filesystem components are present in the kernel. Their integration and functionality may vary while development continues.
+=======
+- `SYS_exit`
+- `SYS_getpid`
+- `SYS_execve` (launches an ELF child process)
+- `SYS_fork` (not implemented)
+- `SYS_waitpid` (waits for a child and reclaims its resources)
+>>>>>>> 0314c3a (	modified:   Makefile)
 
 ### System Calls
 
@@ -91,29 +102,108 @@ The kernel provides a system call interface using `int 0x80`.
 - `SYS_read`
 - `SYS_write`
 - `SYS_readdir`
+<<<<<<< HEAD
 - `SYS_print`
 - `SYS_scan` (cooked line input)
+=======
+- `SYS_mkdir`, `SYS_rmdir`, `SYS_unlink`, `SYS_stat`
+- `SYS_lseek`, `SYS_ftruncate`
+
+#### Terminal
+
+- `SYS_print`
+- `SYS_printcolor` (prints a string in a validated VGA palette color)
+- `SYS_setcolor` (sets the active console foreground and background)
+- `SYS_scan` (blocking cooked line input)
+>>>>>>> 0314c3a (	modified:   Makefile)
 
 The completeness and reliability of individual calls depend on their underlying kernel subsystems.
 
 #### Terminal Operations
 
+<<<<<<< HEAD
 - `SYS_print` — terminal output.
 - `SYS_scan` — line-based keyboard input; currently unreliable.
 
 ## Userland API
+=======
+- `print(const char *s)`
+- `printcolor(const char *s, int foreground, int background)`
+- `setcolor(int foreground, int background)`
+- `scan(char *buf, int max)`
+- `read(fd, buf, count)`
+- `write(fd, buf, count)`
+- `open(path, flags)`
+- `close(fd)`
+- `mkdir(path)`, `rmdir(path)`, `unlink(path)`
+- `lseek(fd, offset)`, `ftruncate(fd, length)`
+- `execve(path, argv)`
+- `readdir(fd, index, out)`
+- `exit(status)`
+
+## Building
+
+The project uses the `i686-elf-` cross-toolchain, NASM, GRUB utilities, and
+QEMU. Build targets are incremental and support parallel jobs:
+
+```sh
+make -j"$(nproc)"       # Build build/kernel.iso
+make kernel             # Build only the kernel ELF
+make user               # Build user init and its archive
+make run                # Run the ISO in QEMU
+make disk-test          # Run ATA PIO read/write test on a disposable disk
+make shell-test         # Boot QEMU and smoke-test user shell commands
+make fat-test           # Test persistent FAT12 writes in QEMU (requires mtools)
+make debug              # Start QEMU paused with a GDB stub on port 1234
+make clean              # Remove generated files under build/
+```
+
+Set `CROSS_COMPILE` to use another compatible cross-toolchain prefix, or
+`BUILD` to place generated files in another directory.
+
+## Limitations / TODO
+>>>>>>> 0314c3a (	modified:   Makefile)
 
 A minimal libc layer provides wrappers for kernel services, including:
 
+<<<<<<< HEAD
 ```c
 print(const char *s);
 scan(char *buf, int max);
+=======
+- Basic per-process address spaces with scheduler CR3 switching
+- Syscall user pointers are validated and copied through kernel buffers;
+  child address spaces are reclaimed when waited on
+- `fork()` not implemented
+- `waitpid()` supports waiting for a child process
+>>>>>>> 0314c3a (	modified:   Makefile)
 
 read(fd, buf, count);
 write(fd, buf, count);
 
+<<<<<<< HEAD
 open(path, flags);
 close(fd);
+=======
+- RAMFS is an in-memory filesystem and does not persist across boots
+- MBR primary partitions are discovered as `hd0p1` through `hd0p4`; extended
+  partitions and GPT are not supported
+- Boot probes discovered partitions for an installed FAT/EXT2 root and falls
+  back to the embedded RAMFS image when no `/init` is present
+- FAT12/16/32 mounting and 8.3-name lookup, create, write, truncate, unlink,
+  and directory operations are supported; long filenames are not
+- The interactive shell supports current-directory navigation (`cd`, `pwd`),
+  directory listing (`dir`/`ls`), file display (`type`/`cat`), and common
+  file/directory aliases (`del`, `rd`); paths are case-insensitive on FAT
+- EXT2 disk support remains incomplete
+- The shell's file commands operate on the currently mounted filesystem; a
+  complete disk installer and partitioning flow are not implemented yet
+- `make disk-test` creates a dedicated 64 MiB image and tests ATA read/write
+  while restoring LBA 0 afterward; do not repoint this test at a disk with data
+- `make fat-test` creates a disposable FAT12 image, tests shell file operations
+  against it, then verifies copied-file contents after reboot; it requires
+  `mtools`
+>>>>>>> 0314c3a (	modified:   Makefile)
 
 execve(path, argv);
 readdir(fd, index, out);
@@ -134,6 +224,7 @@ Much of the Clearfall codebase consists of older implementations that no longer 
 
 ### Shell
 
+<<<<<<< HEAD
 The shell supports cooked line input and launching standalone commands from `/bin`. Input handling, process lifecycle behavior, and command coverage remain limited and need additional testing.
 
 ### Device Drivers and Input
@@ -209,3 +300,38 @@ See [LICENSE](LICENSE.md) for the full license text.
 - `src/user/` contains user programs and startup code.
 - `include/kernel/` and `include/libc/` contain public headers.
 - `archive/legacy/` retains unbuilt implementations.
+=======
+- User-mode shell with `dir`/`ls`, `cd`, `pwd`, `type`/`cat`, `cp`, `touch`,
+  `mkdir`, `del`/`rm`, `rd`/`rmdir`, `help`, `echo`, `pid`, and `exit`
+- User command applets live in `src/user/bin/`, are packaged as separate ELF
+  files under `/bin`, and run as child processes; shell tokenization does not
+  yet support quotes
+- `cls` clears the screen; `color [BGFG]` selects colors with two hexadecimal
+  digits (background first, foreground second), or resets to gray on black
+- `ver` reports the OS version
+- Colored shell prompt, help heading, and command errors; user programs can
+  print text with `printcolor(text, foreground, background)`
+- Basic kernel backup shell supports cooked line input
+
+## Architecture Notes
+
+- Syscalls use `int 0x80`
+- x86 APIC register and local-APIC primitives are available; firmware table
+  discovery and automatic interrupt-controller routing are still pending
+- Arguments passed via registers:
+- EAX = syscall number
+- EBX = arg1
+- ECX = arg2
+- EDX = arg3
+- File descriptors are per-process (static table for now)
+
+## Repository Layout
+
+- `src/kernel/` contains kernel-only code.
+- `src/shared/` contains code shared by kernel and user space, including the
+  freestanding runtime.
+- `src/user/` contains user programs and startup code.
+- `include/kernel/`, `include/shared/`, and `include/user/` organize public
+  headers by ownership; the syscall ABI and freestanding headers are shared.
+- `archive/legacy/` retains unbuilt C implementations, grouped by role.
+>>>>>>> 0314c3a (	modified:   Makefile)

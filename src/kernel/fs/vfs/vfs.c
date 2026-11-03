@@ -1,6 +1,14 @@
 #include "kernel/fs/vfs.h"
 #include "kernel/fs/fs_types.h"
 #include "kernel/fs/mount.h"
+<<<<<<< HEAD
+=======
+#include "kernel/mm/heap.h"
+#include "kernel/proc/proc.h"
+#include "vfs_internal.h"
+#include "libc/errno.h"
+#include "kernel/list.h"
+>>>>>>> 0314c3a (	modified:   Makefile)
 #include "libc/string.h"
 #include "libc/mem.h"
 #include "libc/link.h"

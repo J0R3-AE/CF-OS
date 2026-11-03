@@ -13,7 +13,8 @@ void fd_table_init(fd_table_t *t)
 
 static int fd_find_free(fd_table_t *t)
 {
-    for (int i = 0; i < FD_MAX; ++i)
+    /* Syscalls handle 0-2 as standard streams rather than file table slots. */
+    for (int i = 3; i < FD_MAX; ++i)
     {
         if (!t->entries[i].used)
             return i;

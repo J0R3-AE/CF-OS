@@ -1,7 +1,7 @@
 #include "kernel/arch/gdt.h"
 #include "libc/string.h"
-#include "libc/printf.h"
-#include "libc/log.h"
+#include "kernel/printf.h"
+#include "kernel/log.h"
 
 /* GDT entries array - 6 entries: null, kernel code, kernel data, user code, user data, TSS */
 gdt_entry_t gdt_entries[6];

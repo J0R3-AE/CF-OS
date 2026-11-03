@@ -7,8 +7,10 @@
 #include "kernel/fs/mount.h"
 #include "kernel/fs/vfs.h"
 #include "kernel/fs/blockdev.h"
+#include "kernel/fs/partition.h"
 #include "kernel/drivers/ata.h"
-#include "libc/log.h"
+#include "kernel/log.h"
+#include "libc/errno.h"
 #include "libc/string.h"
 #include "libc/mem.h"
 
@@ -31,21 +33,41 @@ int install_mount_disk_root(void)
         return -1;
     }
 
-    KLOG_INFO("install_mount_disk_root: trying to mount disk root");
-
-    /* Try FAT filesystem first */
-    if (mount_do_mount(&fat_type, "ata0", "/", NULL) == 0)
+    int partition_count = partition_scan(bdev);
+    if (partition_count < 0 && partition_count != ERR_NOT_FOUND)
     {
-        KLOG_OKAY("install_mount_disk_root: FAT root mounted successfully");
-        return 0;
+        KLOG_WARN("install_mount_disk_root: partition scan failed (%d)",
+                  partition_count);
+        return partition_count;
     }
 
-    KLOG_WARN("install_mount_disk_root: FAT mount failed, trying EXT2");
-
-    /* Try EXT2 filesystem */
-    if (mount_do_mount(&ext2_type, "ata0", "/", NULL) == 0)
+    for (u32 i = 1; i <= 4; i++)
     {
-        KLOG_OKAY("install_mount_disk_root: EXT2 root mounted successfully");
+        char partition_name[] = "hd0p0";
+        partition_name[4] = (char)('0' + i);
+        if (!blockdev_lookup(partition_name))
+            continue;
+
+        KLOG_INFO("install_mount_disk_root: trying %s", partition_name);
+        if (mount_do_mount(&fat_type, partition_name, "/", NULL) == 0)
+        {
+            KLOG_OKAY("install_mount_disk_root: FAT partition %s mounted",
+                      partition_name);
+            return 0;
+        }
+        if (mount_do_mount(&ext2_type, partition_name, "/", NULL) == 0)
+        {
+            KLOG_OKAY("install_mount_disk_root: EXT2 partition %s mounted",
+                      partition_name);
+            return 0;
+        }
+    }
+
+    /* Support superfloppy images that contain a filesystem without an MBR. */
+    if (mount_do_mount(&fat_type, "hd0", "/", NULL) == 0 ||
+        mount_do_mount(&ext2_type, "hd0", "/", NULL) == 0)
+    {
+        KLOG_OKAY("install_mount_disk_root: whole-disk filesystem mounted");
         return 0;
     }
 
@@ -74,12 +96,10 @@ int install_check_disk_installed(void)
 /**
  * @brief Format disk with FAT32 and copy root files.
  *
- * This is a stub implementation that will be expanded later.
- * For now, it just logs that install mode is needed.
+ * Disk formatting and file copying are not implemented yet.
  */
 int install_format_and_copy(void)
 {
-    KLOG_INFO("install_format_and_copy: disk format/install not yet fully implemented");
-    KLOG_INFO("install_format_and_copy: starting installer process to handle this");
-    return 0;
+    KLOG_WARN("install_format_and_copy: disk installation is not supported yet");
+    return ERR_NOT_SUPPORTED;
 }

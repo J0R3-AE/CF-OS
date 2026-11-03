@@ -30,8 +30,7 @@ void ksched_yield(void)
     if (prev && prev->state == THREAD_RUNNING)
         prev->state = THREAD_RUNNABLE;
 
-    g_current = next;
-    next->state = THREAD_RUNNING;
+    sched_activate_thread(next);
 
     if (prev)
     {

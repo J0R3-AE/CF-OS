@@ -1,7 +1,7 @@
 #pragma once
 
 #include "libc/types.h"
-#include "libc/link.h"
+#include "kernel/list.h"
 
 #define IPC_NAME_MAX 32
 #define IPC_MAX_DATA 256

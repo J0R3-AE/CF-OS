@@ -179,6 +179,11 @@ void TTY_getcolor(
         *bg = TTY_bg;
 }
 
+void TTY_getcolor(u8 *foreground, u8 *background)
+{
+    console_get_color(foreground, background);
+}
+
 void TTY_resetcolor(void)
 {
     TTY_fg = TTY_COLOR_WHITE;

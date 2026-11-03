@@ -1,7 +1,7 @@
 #include "libc/string.h"
 #include "libc/mem.h"
-#include "libc/log.h"
-#include "libc/printf.h"
+#include "kernel/log.h"
+#include "kernel/printf.h"
 #include "libc/types.h"
 
 #include "kernel/arch/multiboot.h"
@@ -29,12 +29,12 @@
 #include "kernel/drivers/input.h"
 #include "kernel/drivers/ps2/ps2.h"
 
-#include "kernel/fs/vfs.h"
 #include "kernel/fs/ramfs.h"
 #include "kernel/fs/mount.h"
+#include "kernel/fs/partition.h"
 #include "kernel/fs/fat.h"
 #include "kernel/fs/ext2.h"
-#include "kernel/fs/install.h"
+#include "kernel/fs/blockdev.h"
 
 #include "kernel/sched/sched.h"
 #include "kernel/proc/proc.h"
@@ -53,7 +53,6 @@ extern void kernel_init(void);
 static uint8_t kernel_stack[4096];
 
 extern Link g_fs_types; /* intrusive FS registry list head */
-extern void shell_run(void);
 
 multiboot_info_t *g_mbi = NULL;
 
@@ -173,7 +172,7 @@ void kmain(u32 magic, multiboot_info_t *mbi)
     printf("Welcome to AescOS!\n");
 
     log_set_hide_info(0);
-    log_set_hide_all(1);
+    log_set_hide_all(0);
 
     disableinterrupts();
     KLOG_LOG("Kernel initializing...");
@@ -236,8 +235,34 @@ void kmain(u32 magic, multiboot_info_t *mbi)
     enableinterrupts();
     KLOG_LOG("Interrupts enabled");
 
-    ata_identify();
-    KLOG_LOG("ATA devices identified");
+    if (ata_init() == 0)
+    {
+        struct blockdev *disk = blockdev_lookup("hd0");
+        u8 first_sector[512];
+
+        printf("ATA primary master registered: %u sectors\n",
+               ata_sector_count());
+        int partition_count = partition_scan(disk);
+        if (partition_count >= 0)
+            printf("MBR partition scan found %d partitions\n", partition_count);
+        else
+            printf("MBR partition scan failed: %d\n", partition_count);
+        if (blockdev_read(disk, 0, 1, first_sector) == 0)
+            printf("ATA read test passed (LBA 0)\n");
+        else
+            printf("ATA read test failed (LBA 0)\n");
+
+#ifdef ATA_PIO_SELFTEST
+        if (ata_selftest() == 0)
+            printf("ATA read/write test passed; LBA 0 restored\n");
+        else
+            printf("ATA read/write test failed; inspect test disk\n");
+#endif
+    }
+    else
+    {
+        printf("ATA primary master not available\n");
+    }
 
     ListInit(&g_fs_types);
     KLOG_INFO("Filesystem registry initialized");
@@ -261,9 +286,12 @@ void kmain(u32 magic, multiboot_info_t *mbi)
     KLOG_LOG("Scheduler initialized");
 
     kernel_init();
+<<<<<<< HEAD
 
     printf("kmain: returned from kernel_init, going into backup shell");
     shell_run();
+=======
+>>>>>>> 0314c3a (	modified:   Makefile)
 
     for (;;)
     {

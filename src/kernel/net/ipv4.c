@@ -1,5 +1,5 @@
 #include "kernel/net/net.h"
-#include "libc/log.h"
+#include "kernel/log.h"
 
 int net_ipv4_header_valid(const net_ipv4_header_t *hdr)
 {

@@ -1,7 +1,7 @@
 #include "kernel/drivers/console.h"
 #include "kernel/drivers/framebuffer.h"
 #include "kernel/drivers/vga.h"
-#include "gui/font.h"
+#include "kernel/gui/font.h"
 
 #define FONT_WIDTH 8
 #define FONT_HEIGHT 16
@@ -108,6 +108,14 @@ void console_set_color(u8 fg, u8 bg)
 {
     foreground = fg & 0x0F;
     background = bg & 0x0F;
+}
+
+void console_get_color(u8 *fg, u8 *bg)
+{
+    if (fg)
+        *fg = foreground;
+    if (bg)
+        *bg = background;
 }
 
 void console_get_cursor(usize *row, usize *col)

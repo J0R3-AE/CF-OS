@@ -1,7 +1,7 @@
 #ifndef LIBK_LOG_H
 #define LIBK_LOG_H
 
-#include "types.h"
+#include "libc/types.h"
 #include <stdarg.h>
 
 typedef enum {

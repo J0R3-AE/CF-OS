@@ -1,7 +1,7 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
-#include "libc/printf.h"
+#include "kernel/printf.h"
 #include "kernel/drivers/tty.h"
 #include "kernel/drivers/serial.h"
 #include "kernel/arch/io.h"

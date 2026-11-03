@@ -1,5 +1,5 @@
 /**
- * @file link.h
+ * @file list.h
  * @brief Intrusive doubly‑linked list implementation for kernel structures.
  *
  * This header provides a minimal, efficient intrusive list system similar

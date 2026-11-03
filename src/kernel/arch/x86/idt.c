@@ -6,8 +6,8 @@
 #include "libc/mem.h"
 #include "libc/types.h"
 
-#include "libc/log.h"
-#include "syscall.h"
+#include "kernel/log.h"
+#include "shared/syscall.h"
 
 /* IDT entries array - 256 entries for all possible interrupts */
 static idt_entry_t idt_entries[256];
@@ -57,6 +57,7 @@ extern void isr30(void);
 extern void isr31(void);
 
 extern void isr128(void);
+extern void isr255(void);
 
 /* IRQ handlers (hardware interrupts) */
 extern void irq0(void);
@@ -166,6 +167,9 @@ void idt_init(void)
 
     /* Userland syscall interrupt (ring 3) */
     idt_set_gate(128, (u32)isr128, 0x08, 0xEE);
+
+    /* Local APIC spurious interrupt vector. */
+    idt_set_gate(255, (u32)isr255, 0x08, 0x8E);
 
     /* Load the IDT */
     i386IDT_flush((u32)&idt_ptr);

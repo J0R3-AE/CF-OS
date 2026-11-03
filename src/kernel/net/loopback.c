@@ -1,6 +1,6 @@
 #include "kernel/net/net.h"
 #include "kernel/mm/heap.h"
-#include "libc/log.h"
+#include "kernel/log.h"
 
 static int loopback_xmit(net_device_t *dev, const void *data, usize len)
 {return net_rx_push(dev, data, len);}

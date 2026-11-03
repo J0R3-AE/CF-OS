@@ -131,6 +131,7 @@ strncpy:
 strchr:
     push ebp
     mov  ebp, esp
+    push esi
 
     mov  esi, [ebp + 8]      ; s
     mov  dl,  [ebp + 12]     ; c low byte
@@ -146,11 +147,13 @@ strchr:
 
 .found:
     mov  eax, esi
+    pop  esi
     leave
     ret
 
 .not_found:
     xor  eax, eax
+    pop  esi
     leave
     ret
 
@@ -162,6 +165,7 @@ strchr:
 strrchr:
     push ebp
     mov  ebp, esp
+    push esi
 
     mov  esi, [ebp + 8]      ; s
     mov  dl,  [ebp + 12]     ; c low byte
@@ -182,6 +186,7 @@ strrchr:
     jmp  .loop
 
 .done:
+    pop  esi
     leave
     ret
 

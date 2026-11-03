@@ -25,6 +25,8 @@
 #define PAGE_PRESENT 0x001u /**< Page is present in memory. */
 #define PAGE_RW 0x002u      /**< Read/write permission. */
 #define PAGE_USER 0x004u    /**< User-mode accessible. */
+#define PAGE_PWT 0x008u     /**< Page-level write-through caching. */
+#define PAGE_PCD 0x010u     /**< Page-level cache disable. */
 /** @} */
 
 /**
@@ -78,6 +80,7 @@ extern struct page_directory *kernel_pd;
  * @return Pointer to the new page directory.
  */
 struct page_directory *paging_create_address_space(u32 *out_phys);
+void paging_destroy_address_space(struct page_directory *pd, u32 pd_phys);
 
 /**
  * @brief Switch to a page directory using its physical address.
@@ -101,8 +104,16 @@ void paging_temp_unmap_frame(struct page_directory *pd);
 
 /**
  * @brief Map a single 4 KiB page.
+ *
+ * @return 0 on success, -1 if the mapping cannot be created.
  */
-void paging_map_page(struct page_directory *pd, u32 virt, u32 phys, u32 flags);
+int paging_map_page(struct page_directory *pd, u32 virt, u32 phys, u32 flags);
+
+/**
+ * @brief Check that a user range is mapped with the requested access.
+ */
+bool paging_user_range_valid(struct page_directory *pd, u32 address,
+                             usize length, bool write);
 
 /**
  * @brief Invalidate a single TLB entry.

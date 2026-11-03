@@ -1,12 +1,20 @@
 #include "kernel/sched/scheduler.h"
 
+<<<<<<< HEAD
 #include "kernel/sched/thread.h"
 #include "kernel/sched/queue.h"
 #include "kernel/sched/context.h"
 
 #include "libc/types.h"
 #include "libc/log.h"
+=======
+#include "libc/mem.h"
+#include "kernel/log.h"
+>>>>>>> 0314c3a (	modified:   Makefile)
 #include "kernel/mm/heap.h"
+#include "kernel/mm/paging.h"
+#include "kernel/arch/tss.h"
+#include "kernel/proc/proc.h"
 
 #include "kernel/arch/io.h"
 
@@ -98,6 +106,7 @@ void sched_add(thread_t *thread)
         thread);
 }
 
+<<<<<<< HEAD
 
 /* -------------------------------------------------------------------------- */
 /* Pick next runnable thread                                                  */
@@ -135,6 +144,24 @@ static void sched_switch_to(thread_t *next)
 /* Start scheduler                                                            */
 /* -------------------------------------------------------------------------- */
 
+=======
+void sched_activate_thread(Thread *t)
+{
+    if (!t)
+        return;
+
+    process_t *process = t->proc;
+    u32 pd_phys = process && process->pd_phys
+                      ? process->pd_phys
+                      : kernel_pd_phys;
+
+    g_current = t;
+    t->state = THREAD_RUNNING;
+    tss_set_kernel_stack((u32)(t->stack + t->stack_size));
+    paging_switch_phys(pd_phys);
+}
+
+>>>>>>> 0314c3a (	modified:   Makefile)
 void sched_start(void)
 {
     thread_t *next = sched_pick_next();
@@ -145,8 +172,7 @@ void sched_start(void)
         return;
     }
 
-    g_current = next;
-    next->state = THREAD_RUNNING;
+    sched_activate_thread(next);
 
     /*
      * No current context exists yet.

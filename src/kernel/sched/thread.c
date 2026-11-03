@@ -4,7 +4,13 @@
 #include "kernel/signal/signal.h"
 
 #include "kernel/mm/heap.h"
+<<<<<<< HEAD
 #include "libc/log.h"
+=======
+#include "kernel/log.h"
+static Thread *sleep_queue = NULL;
+volatile u32 g_ticks = 0;
+>>>>>>> 0314c3a (	modified:   Makefile)
 
 static u32 next_tid = 1;
 
