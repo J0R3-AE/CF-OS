@@ -11,26 +11,6 @@
  *  - Keep kernel + libc in sync with this file
  * ========================================================================== */
 
-#include "libc/string.h"
-#include "libc/mem.h"
-#include "libc/log.h"
-#include "libc/types.h"
-#include "libc/errno.h"
-#include "libc/dirent.h"
-
-#include "kernel/arch/idt.h"
-#include "kernel/arch/io.h"
-
-#include "kernel/fs/fd.h"
-#include "kernel/fs/vfs.h"
-
-#include "kernel/drivers/tty.h"
-#include "kernel/drivers/line.h"
-#include "kernel/drivers/serial.h"
-
-#include "kernel/sched/scheduler.h"
-#include "kernel/sched/thread.h"
-#include "kernel/proc/process.h"
 /* --------------------------------------------------------------------------
  * Core process control
  * -------------------------------------------------------------------------- */
@@ -103,38 +83,14 @@ enum minios_color
 #define MINIOS_SEEK_CUR 1
 #define MINIOS_SEEK_END 2
 
-/* TODO: move per‑process fd tables into process_t */
-static inline fd_table_t g_fd_tables[64];
-static inline int g_fd_tables_used[64];
-
-static inline fd_table_t *syscall_get_fd_table(void)
-{
-    process_t *p = proc_current();
-    if (!p || p->pid < 0 || p->pid >= 64)
-        return NULL;
-
-    if (!g_fd_tables_used[p->pid])
-    {
-        fd_table_init(&g_fd_tables[p->pid]);
-        g_fd_tables_used[p->pid] = 1;
-    }
-
-    return &g_fd_tables[p->pid];
-}
-
-
 /* --------------------------------------------------------------------------
  * User-space libc wrappers
  * -------------------------------------------------------------------------- */
 int print(const char *s);
-<<<<<<< HEAD:include/syscall.h
-/* scan() removed; use read(0, ...) for console input */
-=======
 int printcolor(const char *s, int foreground, int background);
 int setcolor(int foreground, int background);
 int scan(char *buf, int max);
 int clear_screen(void);
->>>>>>> 0314c3a (	modified:   Makefile):include/shared/syscall.h
 int write(int fd, const void *buf, int count);
 int read(int fd, void *buf, int count);
 int open(const char *path, int flags);
@@ -151,12 +107,6 @@ int execve(const char *path, char *const argv[]);
 int waitpid(int pid, int *status, int options);
 int readdir(int fd, int index, void *out);
 void exit(int status);
-<<<<<<< HEAD:include/syscall.h
-int shell(void);
-int chdir(const char *path);
-int getcwd(char *buf, int size);
-=======
->>>>>>> 0314c3a (	modified:   Makefile):include/shared/syscall.h
 
 /* --------------------------------------------------------------------------
  * Future reserved range (DO NOT USE YET)

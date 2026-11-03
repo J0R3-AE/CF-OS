@@ -2,7 +2,7 @@
 
 #include "kernel/drivers/tty.h"
 #include "kernel/sched/scheduler.h"
-#include "libc/log.h"
+#include "kernel/log.h"
 
 int ksys_read(int fd, void *buf, usize count)
 {

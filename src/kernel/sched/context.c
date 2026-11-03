@@ -1,4 +1,5 @@
 #include "kernel/sched/context.h"
+#include "kernel/sched/sched.h"
 
 extern void kthread_entry(void);
 
@@ -29,6 +30,7 @@ int context_create(
      *
      *     popad
      *     popfd
+     *     pop ebp
      *     ret
      *
      * Layout from low to high:
@@ -42,11 +44,15 @@ int context_create(
      *     ESI
      *     EDI
      *     EFLAGS
+     *     saved EBP
      *     return address
      */
 
     /* RET target */
     *(--stk) = (u32)kthread_entry;
+
+    /* Saved EBP consumed by the compiler-generated function epilogue. */
+    *(--stk) = 0;
 
     /* EFLAGS */
     *(--stk) = 0x202;
@@ -92,8 +98,6 @@ void context_switch(
 
         "popal\n\t"
         "popfl\n\t"
-        "ret\n\t"
-
         :
         : "r"(old_ctx),
           "r"(new_ctx->esp)

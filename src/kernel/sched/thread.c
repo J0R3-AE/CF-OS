@@ -1,84 +1,31 @@
-#include "kernel/sched/thread.h"
-#include "kernel/sched/scheduler.h"
-#include "kernel/sched/context.h"
-#include "kernel/signal/signal.h"
+#include "kernel/sched/sched.h"
 
 #include "kernel/mm/heap.h"
-<<<<<<< HEAD
-#include "libc/log.h"
-=======
-#include "kernel/log.h"
-static Thread *sleep_queue = NULL;
-volatile u32 g_ticks = 0;
->>>>>>> 0314c3a (	modified:   Makefile)
+#include "kernel/proc/proc.h"
 
-static u32 next_tid = 1;
+extern void signal_thread_init(thread_sigstate_t *state);
 
-extern void signal_thread_init(thread_sigstate_t *s);
-
-static void thread_trampoline(void *arg)
+Thread *thread_create(void (*entry)(void *), void *arg,
+                      u8 *stack_mem, size_t stack_size)
 {
-    thread_t *thread = (thread_t *)arg;
-
-    if (!thread || !thread->entry)
-    {
-        thread_exit();
-        return;
-    }
-
-    thread->state = THREAD_RUNNING;
-
-    thread->entry(thread->arg);
-
-    thread_exit();
-}
-
-thread_t *thread_create(
-    void (*entry)(void *),
-    void *arg,
-    usize stack_size)
-{
-    if (!entry || stack_size == 0)
+    if (!entry || !stack_mem || !stack_size)
         return NULL;
 
-    thread_t *thread =
-        calloc(1, sizeof(thread_t));
-
+    Thread *thread = calloc(1, sizeof(*thread));
     if (!thread)
         return NULL;
 
-    thread->stack = malloc(stack_size);
-
-    if (!thread->stack)
-    {
-        free(thread);
-        return NULL;
-    }
-
-    thread->tid = next_tid++;
-    thread->state = THREAD_READY;
-
+    LinkInit(&thread->run_link);
+    thread->stack = stack_mem;
     thread->stack_size = stack_size;
-
+    thread->state = THREAD_RUNNABLE;
     thread->entry = entry;
     thread->arg = arg;
-
     signal_thread_init(&thread->signals);
 
-    thread->process = NULL;
-    thread->wakeup_tick = 0;
-    thread->next = NULL;
-
-    u8 *stack_top =
-        (u8 *)thread->stack + stack_size;
-
-    if (context_create(
-            &thread->context,
-            thread_trampoline,
-            thread,
-            stack_top) < 0)
+    if (context_create(&thread->ctx, entry, arg,
+                       stack_mem + stack_size) != 0)
     {
-        free(thread->stack);
         free(thread);
         return NULL;
     }
@@ -86,28 +33,25 @@ thread_t *thread_create(
     return thread;
 }
 
-void thread_destroy(thread_t *thread)
-{
-    if (!thread)
-        return;
-
-    if (thread->stack)
-        free(thread->stack);
-
-    free(thread);
-}
-
 void thread_exit(void)
 {
-    thread_t *thread = sched_current();
+    Thread *thread = sched_current();
+    if (thread && thread->proc)
+        proc_mark_exit(0);
+    else if (thread)
+        thread->state = THREAD_ZOMBIE;
 
-    if (!thread)
-        return;
-
-    thread->state = THREAD_ZOMBIE;
-
-    sched_yield();
-
+    ksched_yield();
     for (;;)
-        asm volatile("hlt");
+        __asm__ volatile("cli; hlt");
+}
+
+void thread_sleep(u32 milliseconds)
+{
+    sched_sleep((milliseconds + 9) / 10);
+}
+
+void wake_sleepers(void)
+{
+    sched_wake_sleepers();
 }

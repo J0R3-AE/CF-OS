@@ -12,7 +12,7 @@
 #include "kernel/sched/scheduler.h"
 
 #include "libc/mem.h"
-#include "libc/log.h"
+#include "kernel/log.h"
 
 extern void enter_user_mode(u32 eip, u32 esp);
 

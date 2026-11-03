@@ -1,5 +1,5 @@
 
-#include "libc/printf.h"
+#include "kernel/printf.h"
 #include "libc/detech.h"
 
 static inline void cpuid(uint32_t leaf,

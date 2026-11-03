@@ -9,6 +9,7 @@
 
 #include "kernel/arch/idt.h"
 #include "kernel/drivers/line.h"
+#include "kernel/drivers/serial.h"
 #include "kernel/drivers/tty.h"
 #include "kernel/fs/fd.h"
 #include "kernel/fs/vfs.h"
@@ -407,7 +408,10 @@ void syscall_handler(registers_t *regs)
             if (fd == 1 || fd == 2)
             {
                 for (usize i = 0; i < length; i++)
+                {
                     TTY_putc(chunk[i]);
+                    serial_write_char(chunk[i]);
+                }
                 total += length;
                 continue;
             }

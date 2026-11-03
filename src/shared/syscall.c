@@ -18,8 +18,6 @@ int print(const char *s)
     return syscall(SYS_print, (int)(uintptr_t)s, 0, 0);
 }
 
-<<<<<<<< HEAD:src/shared/syscall.c
-========
 int printcolor(const char *s, int foreground, int background)
 {
     return syscall(SYS_printcolor, (int)(uintptr_t)s, foreground, background);
@@ -39,8 +37,6 @@ int clear_screen(void)
 {
     return syscall(SYS_clear, 0, 0, 0);
 }
-
->>>>>>>> 0314c3a (	modified:   Makefile):src/shared/libc/syscall.c
 int write(int fd, const void *buf, int count)
 {
     return syscall(SYS_write, fd, (int)(uintptr_t)buf, count);
@@ -114,16 +110,6 @@ int waitpid(int pid, int *status, int options)
 int readdir(int fd, int index, void *out)
 {
     return syscall(SYS_readdir, fd, index, (int)(uintptr_t)out);
-}
-
-int chdir(const char *path)
-{
-    return syscall(SYS_chdir, (int)(uintptr_t)path, 0, 0);
-}
-
-int getcwd(char *buf, int size)
-{
-    return syscall(SYS_getcwd, (int)(uintptr_t)buf, size, 0);
 }
 
 void exit(int status)

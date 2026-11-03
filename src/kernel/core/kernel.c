@@ -40,6 +40,7 @@
 #include "kernel/proc/proc.h"
 
 extern void kernel_init(void);
+extern void shell_run(void);
 
 #define FB_VIRT 0xE0000000
 #define FB_VIRT_LIMIT 0xE1000000
@@ -172,7 +173,7 @@ void kmain(u32 magic, multiboot_info_t *mbi)
     printf("Welcome to AescOS!\n");
 
     log_set_hide_info(0);
-    log_set_hide_all(0);
+    log_set_hide_all(1);
 
     disableinterrupts();
     KLOG_LOG("Kernel initializing...");
@@ -286,12 +287,9 @@ void kmain(u32 magic, multiboot_info_t *mbi)
     KLOG_LOG("Scheduler initialized");
 
     kernel_init();
-<<<<<<< HEAD
 
     printf("kmain: returned from kernel_init, going into backup shell");
     shell_run();
-=======
->>>>>>> 0314c3a (	modified:   Makefile)
 
     for (;;)
     {

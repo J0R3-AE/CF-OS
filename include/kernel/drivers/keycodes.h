@@ -39,6 +39,8 @@ typedef enum {
     KEY_HOME,
     KEY_END,
     KEY_DELETE,
+    KEY_PAGE_UP,
+    KEY_PAGE_DOWN,
 
     KEY_MAX
 } keycode_t;

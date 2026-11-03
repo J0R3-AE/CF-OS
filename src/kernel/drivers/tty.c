@@ -1,10 +1,14 @@
 #include "kernel/drivers/tty.h"
 #include "kernel/drivers/console.h"
+#include "kernel/drivers/serial.h"
 
 #include "libc/types.h"
 
 #include <stddef.h>
 #include <stdint.h>
+
+#define TTY_SCROLLBACK_LINES 256
+#define TTY_SCROLLBACK_COLS 80
 
 /* -------------------------------------------------------------------------- */
 /* Backend/state                                                              */
@@ -22,6 +26,10 @@ size_t TTY_COLS = 80;
 
 uint8_t TTY_fg = TTY_COLOR_WHITE;
 uint8_t TTY_bg = TTY_COLOR_BLACK;
+
+static uint16_t scrollback[TTY_SCROLLBACK_LINES][TTY_SCROLLBACK_COLS];
+static size_t scrollback_total;
+static size_t scrollback_offset;
 
 
 /* -------------------------------------------------------------------------- */
@@ -179,11 +187,6 @@ void TTY_getcolor(
         *bg = TTY_bg;
 }
 
-void TTY_getcolor(u8 *foreground, u8 *background)
-{
-    console_get_color(foreground, background);
-}
-
 void TTY_resetcolor(void)
 {
     TTY_fg = TTY_COLOR_WHITE;
@@ -197,6 +200,10 @@ void TTY_resetcolor(void)
 
 void TTY_clear(void)
 {
+    serial_clear();
+    scrollback_total = 0;
+    scrollback_offset = 0;
+
     if (fb_mode)
     {
         console_clear();
@@ -289,6 +296,14 @@ void TTY_scroll(void)
     if (!TTY_base)
         return;
 
+    if (TTY_COLS == TTY_SCROLLBACK_COLS)
+    {
+        size_t slot = scrollback_total % TTY_SCROLLBACK_LINES;
+        for (size_t col = 0; col < TTY_SCROLLBACK_COLS; col++)
+            scrollback[slot][col] = TTY_base[col];
+        scrollback_total++;
+    }
+
     for (size_t row = 1;
          row < TTY_ROWS;
          ++row)
@@ -318,6 +333,53 @@ void TTY_scroll(void)
         TTY_row--;
 }
 
+void TTY_scrollback(int lines)
+{
+    if (fb_mode || !TTY_base || TTY_COLS != TTY_SCROLLBACK_COLS ||
+        !scrollback_total)
+        return;
+
+    size_t max_offset = scrollback_total < TTY_SCROLLBACK_LINES
+                            ? scrollback_total
+                            : TTY_SCROLLBACK_LINES;
+    if (lines < 0)
+    {
+        size_t amount = (size_t)(-lines);
+        scrollback_offset = amount > max_offset - scrollback_offset
+                                ? max_offset
+                                : scrollback_offset + amount;
+    }
+    else
+    {
+        size_t amount = (size_t)lines;
+        scrollback_offset = amount > scrollback_offset
+                                ? 0
+                                : scrollback_offset - amount;
+    }
+
+    size_t oldest = scrollback_total > TTY_SCROLLBACK_LINES
+                        ? scrollback_total - TTY_SCROLLBACK_LINES
+                        : 0;
+    size_t first_row = scrollback_total - scrollback_offset;
+    uint16_t blank = vga_entry(' ', TTY_fg, TTY_bg);
+
+    for (size_t row = 0; row < TTY_ROWS; row++)
+    {
+        size_t logical_row = first_row + row;
+        for (size_t col = 0; col < TTY_COLS; col++)
+        {
+            uint16_t cell = blank;
+            if (logical_row < scrollback_total && logical_row >= oldest)
+                cell = scrollback[logical_row % TTY_SCROLLBACK_LINES][col];
+            else if (logical_row >= scrollback_total &&
+                     logical_row - scrollback_total < TTY_ROWS)
+                cell = TTY_base[(logical_row - scrollback_total) * TTY_COLS +
+                                col];
+            TTY_base[row * TTY_COLS + col] = cell;
+        }
+    }
+}
+
 
 /* -------------------------------------------------------------------------- */
 /* Backspace                                                                  */
@@ -326,9 +388,14 @@ void TTY_scroll(void)
 void TTY_backspace(void)
 {
     if (TTY_col == 0)
-        return;
-
-    TTY_col--;
+    {
+        if (TTY_row == 0)
+            return;
+        TTY_row--;
+        TTY_col = TTY_COLS - 1;
+    }
+    else
+        TTY_col--;
 
     if (fb_mode)
     {
@@ -362,6 +429,9 @@ void TTY_putc(char c)
     /* For debugging, always emit to TTY. WM overlay suppression was
      * causing terminal output to be hidden; remove the early return so
      * the shell and debug messages are visible. */
+    if (scrollback_offset)
+        TTY_scrollback((int)scrollback_offset);
+
     /* Newline */
     if (c == '\n')
     {
@@ -448,6 +518,7 @@ void TTY_puts(const char *s)
     if (!s)
         return;
 
+    serial_write(s);
     while (*s)
         TTY_putc(*s++);
 }

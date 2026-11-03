@@ -9,7 +9,7 @@ import sys
 import time
 
 
-PROMPT = re.compile(rb"\$:[^\r\n]*> ")
+PROMPT = re.compile(rb"\$:[^\r\n]*> \Z")
 
 
 class ShellSmokeTest:
@@ -85,6 +85,33 @@ class ShellSmokeTest:
         self.wait_for(condition, f"prompt after {line!r}")
         return bytes(self.output[start:])
 
+    def key_input(self, data, description):
+        start = len(self.output)
+        self.process.stdin.write(data)
+        self.process.stdin.flush()
+        self.wait_for(
+            lambda: PROMPT.search(self.output, start) is not None,
+            f"prompt after {description}",
+        )
+        return bytes(self.output[start:])
+
+    def paged_command(self, line):
+        start = len(self.output)
+        self.process.stdin.write(line.encode("ascii") + b"\r")
+        self.process.stdin.flush()
+        marker = b"-- More (Enter to continue, q to quit) -- "
+        self.wait_for(
+            lambda: marker in self.output[start:],
+            f"first page from {line!r}",
+        )
+        self.process.stdin.write(b"q\r")
+        self.process.stdin.flush()
+        self.wait_for(
+            lambda: PROMPT.search(self.output, start) is not None,
+            f"prompt after quitting {line!r}",
+        )
+        return bytes(self.output[start:])
+
 
 def require(condition, message):
     if not condition:
@@ -101,10 +128,32 @@ def run_test(qemu, kernel, timeout, disk=None):
         require(b"AescOS version" in output, "ver output was missing")
         print("PASS: ver")
 
+        output = test.command("fastfetch-esc")
+        require(b"Clearfall / AescOS" in output and b"Directory:" in output,
+                "fastfetch-esc did not show system details")
+        output = test.command("fastfetch")
+        require(b"Kernel:" in output, "fastfetch alias did not run")
+        print("PASS: fastfetch-esc")
+
         for _ in range(8):
             output = test.command("ver")
             require(b"AescOS version" in output, "repeated ver failed")
         print("PASS: repeated child launch and reap")
+
+        output = test.command("\x1b[5~\x1b[6~echo scrollback-ok")
+        require(b"scrollback-ok" in output,
+                "PageUp/PageDown interrupted command input")
+        print("PASS: terminal PageUp/PageDown")
+
+        output = test.key_input(b"\x1b[A\r", "Up-arrow history")
+        require(b"AescOS version" in output,
+                "Up arrow did not recall the previous command")
+        output = test.key_input(
+            b"echo draft\x1b[A\x1b[B\r", "Up/Down draft restoration"
+        )
+        require(b"draft\n" in output,
+                "Down arrow did not restore the unfinished input")
+        print("PASS: Up/Down command history")
 
         output = test.command("dir")
         require(b"init" in output.lower(),
@@ -135,6 +184,16 @@ def run_test(qemu, kernel, timeout, disk=None):
         output = test.command("type COPY.BIN")
         require(b"\x7fELF" in output, "type did not print the copied ELF")
         print("PASS: copy and read-back")
+
+        output = test.command("hexdump /init")
+        require(b"7f 45 4c 46" in output,
+                "hexdump did not show the ELF header")
+        require(b"\n*\n" in output,
+                "hexdump did not compress repeated rows")
+        output = test.paged_command("more /init")
+        require(b"\x7fELF" in output,
+                "more did not display the first page of the file")
+        print("PASS: hexdump and paged file viewing")
 
         output = test.command("del COPY.BIN")
         require(b"failed" not in output, "del reported an error")

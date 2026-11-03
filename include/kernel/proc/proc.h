@@ -1,8 +1,5 @@
 #pragma once
 
-<<<<<<< HEAD
-#include "kernel/proc/process.h"
-=======
 #include "libc/types.h"
 #include "kernel/sched/sched.h"
 
@@ -36,4 +33,3 @@ int exec_elf_vnode_args(struct vnode *vn, int argc,
                         const char *const argv[]);
 process_t *proc_find_child(int parent_pid, int child_pid);
 int proc_reap(int pid);
->>>>>>> 0314c3a (	modified:   Makefile)

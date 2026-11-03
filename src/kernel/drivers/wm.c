@@ -2,7 +2,7 @@
 #include "kernel/drivers/framebuffer.h"
 #include "libc/mem.h"
 #include "libc/types.h"
-#include "libc/printf.h"
+#include "kernel/printf.h"
 
 #include "kernel/mm/heap.h"
 #include <stddef.h>

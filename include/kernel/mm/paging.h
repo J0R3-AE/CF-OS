@@ -15,7 +15,7 @@
 #ifndef MM_PAGING_H
 #define MM_PAGING_H
 
-#include "libc/types.h"
+#include "shared/libc/types.h"
 
 /**
  * @name Paging Constants

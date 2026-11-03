@@ -14,7 +14,7 @@
  */
 
 #include <kernel/signal/signal.h>
-#include <libc/link.h>
+#include "kernel/list.h"
 #include <libc/types.h>
 #include <libc/errno.h>
 #include <libc/string.h>

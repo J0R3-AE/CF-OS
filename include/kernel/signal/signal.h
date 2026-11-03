@@ -2,7 +2,7 @@
 #define KERNEL_SIGNAL_H
 
 #include "libc/types.h"
-#include "libc/link.h"
+#include "kernel/list.h"
 
 /* -------------------------------------------------------------------------- */
 /* Signal numbers                                                             */

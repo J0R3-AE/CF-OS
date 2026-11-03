@@ -1,171 +1,119 @@
-#include "kernel/sched/scheduler.h"
-
-<<<<<<< HEAD
-#include "kernel/sched/thread.h"
-#include "kernel/sched/queue.h"
-#include "kernel/sched/context.h"
-
-#include "libc/types.h"
-#include "libc/log.h"
-=======
-#include "libc/mem.h"
-#include "kernel/log.h"
->>>>>>> 0314c3a (	modified:   Makefile)
-#include "kernel/mm/heap.h"
-#include "kernel/mm/paging.h"
-#include "kernel/arch/tss.h"
-#include "kernel/proc/proc.h"
+#include "kernel/sched/sched.h"
 
 #include "kernel/arch/io.h"
+#include "kernel/arch/tss.h"
+#include "kernel/mm/heap.h"
+#include "kernel/mm/paging.h"
+#include "kernel/proc/proc.h"
 
-/* -------------------------------------------------------------------------- */
-/* kernel/scheduler state                                                            */
-/* -------------------------------------------------------------------------- */
+Thread *g_current;
+Thread *g_idle_thread;
+static Link run_queue;
+static Thread *sleep_queue;
+static int reschedule_pending;
 
-static thread_t *g_current = NULL;
-static thread_t *g_idle_thread = NULL;
-static thread_t *g_sleeping_threads = NULL;
-
-static thread_queue_t g_ready_queue;
-
-static u64 g_ticks = 0;
-
-
-/* -------------------------------------------------------------------------- */
-/* Idle thread                                                                */
-/* -------------------------------------------------------------------------- */
+Thread *sched_current(void)
+{
+    return g_current;
+}
 
 static void idle_thread_entry(void *arg)
 {
     (void)arg;
-
     for (;;)
     {
-        /*
-         * Interrupts must be enabled so the timer/keyboard/etc.
-         * can wake the processor.
-         */
-        sti();
-        halt();
+        __asm__ volatile("sti; hlt");
     }
 }
 
-
-/* -------------------------------------------------------------------------- */
-/* Initialization                                                             */
-/* -------------------------------------------------------------------------- */
-
-void sched_init(void)
+void runqueue_init(void)
 {
-    thread_queue_init(&g_ready_queue);
-
-    g_current = NULL;
-    g_idle_thread = NULL;
-    g_ticks = 0;
-
-    /*
-     * Create the idle thread.
-     *
-     * The kernel/scheduler itself owns this thread.
-     */
-    g_idle_thread = thread_create(
-        idle_thread_entry,
-        NULL,
-        4096);
-
-    if (!g_idle_thread)
-    {
-        KLOG_ERROR("sched: failed to create idle thread");
-        return;
-    }
-
-    /*
-     * Idle thread is not placed in the normal ready queue.
-     * It is selected only when there are no runnable threads.
-     */
-    g_idle_thread->state = THREAD_READY;
+    LinkInit(&run_queue);
 }
 
+void runqueue_add(Thread *thread)
+{
+    if (!thread || thread == g_idle_thread)
+        return;
+    if (thread->run_link.next &&
+        thread->run_link.next != &thread->run_link)
+        return;
 
-/* -------------------------------------------------------------------------- */
-/* Add thread                                                                 */
-/* -------------------------------------------------------------------------- */
+    if (!thread->run_link.next)
+        LinkInit(&thread->run_link);
+    thread->state = THREAD_RUNNABLE;
+    LinkBefore(&run_queue, &thread->run_link);
+}
 
-void sched_add(thread_t *thread)
+void runqueue_remove(Thread *thread)
+{
+    if (!thread || !thread->run_link.next ||
+        thread->run_link.next == &thread->run_link)
+        return;
+    LinkRemove(&thread->run_link);
+}
+
+Thread *runqueue_next(Thread *from)
+{
+    (void)from;
+    if (!ListIsEmpty(&run_queue))
+    {
+        Link *link = run_queue.next;
+        Thread *thread = LinkData(link, Thread, run_link);
+        LinkRemove(link);
+        return thread;
+    }
+    return g_idle_thread;
+}
+
+void sched_activate_thread(Thread *thread)
 {
     if (!thread)
         return;
 
-    if (thread->state == THREAD_ZOMBIE)
-        return;
+    g_current = thread;
+    thread->state = THREAD_RUNNING;
 
-    thread->state = THREAD_READY;
-
-    thread_queue_push(
-        &g_ready_queue,
-        thread);
+    process_t *process = thread->proc;
+    u32 page_directory = process && process->pd_phys
+                             ? process->pd_phys
+                             : kernel_pd_phys;
+    tss_set_kernel_stack((u32)(thread->stack + thread->stack_size));
+    paging_switch_phys(page_directory);
 }
 
-<<<<<<< HEAD
-
-/* -------------------------------------------------------------------------- */
-/* Pick next runnable thread                                                  */
-/* -------------------------------------------------------------------------- */
-
-static thread_t *sched_pick_next(void)
+void sched_init(void)
 {
-    thread_t *next = thread_queue_pop(&g_ready_queue);
+    g_current = NULL;
+    g_idle_thread = NULL;
+    g_pit_ticks = 0;
+    sleep_queue = NULL;
+    reschedule_pending = 0;
+    runqueue_init();
 
-    if (next)
-        return next;
+    u8 *stack = malloc(4096);
+    if (!stack)
+    {
+        KLOG_ERROR("sched: failed to allocate idle stack");
+        return;
+    }
 
-    return g_idle_thread;
+    g_idle_thread = thread_create(idle_thread_entry, NULL, stack, 4096);
+    if (!g_idle_thread)
+    {
+        free(stack);
+        KLOG_ERROR("sched: failed to create idle thread");
+    }
 }
 
-static void sched_switch_to(thread_t *next)
+void sched_add(Thread *thread)
 {
-    thread_t *current = g_current;
-
-    if (!next)
-        return;
-
-    if (next == current)
-        return;
-
-    next->state = THREAD_RUNNING;
-    g_current = next;
-
-    context_switch(
-        current ? &current->context : NULL,
-        &next->context);
+    runqueue_add(thread);
 }
 
-/* -------------------------------------------------------------------------- */
-/* Start scheduler                                                            */
-/* -------------------------------------------------------------------------- */
-
-=======
-void sched_activate_thread(Thread *t)
-{
-    if (!t)
-        return;
-
-    process_t *process = t->proc;
-    u32 pd_phys = process && process->pd_phys
-                      ? process->pd_phys
-                      : kernel_pd_phys;
-
-    g_current = t;
-    t->state = THREAD_RUNNING;
-    tss_set_kernel_stack((u32)(t->stack + t->stack_size));
-    paging_switch_phys(pd_phys);
-}
-
->>>>>>> 0314c3a (	modified:   Makefile)
 void sched_start(void)
 {
-    thread_t *next = sched_pick_next();
-
+    Thread *next = runqueue_next(NULL);
     if (!next)
     {
         KLOG_ERROR("sched: no idle thread");
@@ -173,130 +121,82 @@ void sched_start(void)
     }
 
     sched_activate_thread(next);
-
-    /*
-     * No current context exists yet.
-     *
-     * context_switch() expects an old context pointer, so there is
-     * nothing to save on the very first dispatch.
-     */
-    context_switch(
-        NULL,
-        &next->context);
-
-    /*
-     * We should never return here.
-     */
+    context_switch(NULL, &next->ctx);
     for (;;)
-    {
         halt();
-    }
 }
 
+void ksched_yield(void)
+{
+    Thread *current = g_current;
+    if (current && current != g_idle_thread &&
+        current->state == THREAD_RUNNING)
+        runqueue_add(current);
 
-/* -------------------------------------------------------------------------- */
-/* Yield                                                                      */
-/* -------------------------------------------------------------------------- */
+    Thread *next = runqueue_next(current);
+    if (!next || next == current)
+    {
+        if (current)
+            current->state = THREAD_RUNNING;
+        return;
+    }
+
+    sched_activate_thread(next);
+    context_switch(current ? &current->ctx : NULL, &next->ctx);
+}
 
 void sched_yield(void)
 {
-    thread_t *current = g_current;
-
-    if (!current)
-        return;
-
-    if (current != g_idle_thread &&
-        current->state == THREAD_RUNNING)
-    {
-        current->state = THREAD_READY;
-        thread_queue_push(&g_ready_queue, current);
-    }
-
-    thread_t *next = sched_pick_next();
-
-    sched_switch_to(next);
+    ksched_yield();
 }
 
 void sched_sleep(u64 ticks)
 {
-    thread_t *current = g_current;
-
+    Thread *current = g_current;
     if (!current || current == g_idle_thread)
         return;
 
+    current->wakeup_tick = (u64)g_pit_ticks + (ticks ? ticks : 1);
     current->state = THREAD_SLEEPING;
-    current->wakeup_tick = g_ticks + ticks;
-
-    current->next = g_sleeping_threads;
-    g_sleeping_threads = current;
-
-    thread_t *next = sched_pick_next();
-
-    sched_switch_to(next);
+    current->next_sleep = sleep_queue;
+    sleep_queue = current;
+    ksched_yield();
 }
 
 void sched_wake_sleepers(void)
 {
-    thread_t **link = &g_sleeping_threads;
-
+    Thread **link = &sleep_queue;
     while (*link)
     {
-        thread_t *thread = *link;
-
-        if (thread->wakeup_tick <= g_ticks)
+        Thread *thread = *link;
+        if (thread->wakeup_tick <= g_pit_ticks)
         {
-            *link = thread->next;
-
-            thread->next = NULL;
+            *link = thread->next_sleep;
+            thread->next_sleep = NULL;
             thread->wakeup_tick = 0;
-            thread->state = THREAD_READY;
-
-            thread_queue_push(
-                &g_ready_queue,
-                thread);
-
+            runqueue_add(thread);
             continue;
         }
-
-        link = &thread->next;
+        link = &thread->next_sleep;
     }
 }
 
-/* -------------------------------------------------------------------------- */
-/* Timer tick                                                                 */
-/* -------------------------------------------------------------------------- */
-
 void sched_tick(void)
 {
-    g_ticks++;
-
     sched_wake_sleepers();
-    /*
-     * For the first kernel/scheduler version, use a simple round-robin
-     * kernel/scheduler. Every timer tick gives another runnable thread
-     * an opportunity to run.
-     */
-
+    reschedule_pending = 1;
 }
 
-
-/* -------------------------------------------------------------------------- */
-/* Accessors                                                                  */
-/* -------------------------------------------------------------------------- */
-
-thread_t *sched_current(void)
+void sched_maybe_resched(void)
 {
-    return g_current;
+    if (reschedule_pending)
+    {
+        reschedule_pending = 0;
+        ksched_yield();
+    }
 }
-
-
-thread_t *sched_idle(void)
-{
-    return g_idle_thread;
-}
-
 
 u64 sched_ticks(void)
 {
-    return g_ticks;
+    return g_pit_ticks;
 }

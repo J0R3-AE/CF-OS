@@ -9,8 +9,8 @@
 #ifndef PMM_H
 #define PMM_H
 
-#include "libc/types.h"
-#include "libc/errno.h"
+#include "shared/libc/types.h"
+#include "shared/libc/errno.h"
 
 /* =========================
  * Constants

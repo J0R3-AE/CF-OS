@@ -1,5 +1,4 @@
 /**
- * @author J.Fairweather
  * @file vmm.h
  * @brief Virtual Memory Manager (VMM) — page lookup, mapping, and address‑space creation.
  *
@@ -17,7 +16,7 @@
 
 #include <stdint.h>
 #include "kernel/mm/paging.h"
-#include "libc/types.h"
+#include "shared/libc/types.h"
 
 /**
  * @important

@@ -13,6 +13,65 @@
 
 static u16 g_serial_port = COM1;
 static bool g_initialized = false;
+static u8 g_serial_escape_state;
+static char g_serial_escape_key;
+
+static void serial_handle_input(char character)
+{
+    key_event_t event = {
+        .type = KEY_EVENT_PRESS,
+        .keycode = KEY_NONE,
+        .ascii = (u8)character,
+    };
+
+    if (g_serial_escape_state == 1)
+    {
+        g_serial_escape_state = character == '[' ? 2 : 0;
+        return;
+    }
+
+    if (g_serial_escape_state == 2)
+    {
+        if (character == '5' || character == '6')
+        {
+            g_serial_escape_key = character;
+            g_serial_escape_state = 3;
+            return;
+        }
+
+        g_serial_escape_state = 0;
+        if (character == 'A')
+            event.keycode = KEY_UP;
+        else if (character == 'B')
+            event.keycode = KEY_DOWN;
+        else
+            return;
+        event.ascii = 0;
+        line_handle_keyevent(&event);
+        return;
+    }
+
+    if (g_serial_escape_state == 3)
+    {
+        g_serial_escape_state = 0;
+        if (character != '~')
+            return;
+        event.keycode = g_serial_escape_key == '5'
+                            ? KEY_PAGE_UP
+                            : KEY_PAGE_DOWN;
+        event.ascii = 0;
+        line_handle_keyevent(&event);
+        return;
+    }
+
+    if ((u8)character == 0x1B)
+    {
+        g_serial_escape_state = 1;
+        return;
+    }
+
+    line_handle_keyevent(&event);
+}
 
 /* -------------------------------------------------------------------------- */
 /* Internal Helpers                                                            */
@@ -170,14 +229,15 @@ void serial_input_thread(void *arg)
 
     for (;;)
     {
-        char c = serial_read_char();
+        if (!serial_received())
+        {
+            sched_yield();
+            continue;
+        }
 
-        key_event_t ev;
-        ev.type = KEY_EVENT_PRESS;
-        ev.keycode = KEY_NONE;
-        ev.ascii = (uint8_t)c;
+        char c = (char)in8(SERIAL_DATA(g_serial_port));
 
-        line_handle_keyevent(&ev);
+        serial_handle_input(c);
 
         /* Yield so other threads can run */
         sched_yield();

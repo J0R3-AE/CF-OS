@@ -7,7 +7,7 @@
 
 #include "libc/mem.h"
 #include "libc/errno.h"
-#include "libc/log.h"
+#include "kernel/log.h"
 #include "libc/string.h"
 
 #define MAX_PROCESSES 64

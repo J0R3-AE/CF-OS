@@ -21,10 +21,12 @@ static keycode_t translate_scancode(u8 code, bool extended)
         case 0x38: return KEY_RALT;
         case 0x47: return KEY_HOME;
         case 0x48: return KEY_UP;
+        case 0x49: return KEY_PAGE_UP;
         case 0x4B: return KEY_LEFT;
         case 0x4D: return KEY_RIGHT;
         case 0x4F: return KEY_END;
         case 0x50: return KEY_DOWN;
+        case 0x51: return KEY_PAGE_DOWN;
         case 0x53: return KEY_DELETE;
         default: return KEY_NONE;
         }

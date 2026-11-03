@@ -1,13 +1,11 @@
 #pragma once
 
-<<<<<<< HEAD
-#include "kernel/sched/scheduler.h"
-#include "kernel/sched/thread.h"
-=======
 #include "libc/types.h"
 #include "kernel/list.h"
-#include "kernel/arch/context.h"
+#include "kernel/sched/context.h"
 #include "kernel/log.h"
+#include "kernel/signal/signal.h"
+#include <stddef.h>
 
 struct process;
 
@@ -36,11 +34,13 @@ typedef struct Thread
     void *arg;
 
     struct process *proc;
+    thread_sigstate_t signals;
 } Thread;
 
 extern Thread *g_current;
 extern Thread *g_idle_thread;
 extern volatile u32 g_pit_ticks;
+Thread *sched_current(void);
 
 Thread *thread_create(void (*entry)(void *),
                       void *arg,
@@ -64,4 +64,3 @@ void sched_init(void);
 void sched_add(Thread *t);
 void sched_activate_thread(Thread *t);
 void sched_start(void);
->>>>>>> 0314c3a (	modified:   Makefile)

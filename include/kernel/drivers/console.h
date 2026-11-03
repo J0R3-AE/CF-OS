@@ -21,4 +21,3 @@ void console_set_cursor(usize row, usize col);
 usize console_rows(void);
 usize console_cols(void);
 #endif
-#endif
